@@ -33,6 +33,7 @@
 #include <miniaudio.h>
 
 #include "../cpstd/cpbase.h"
+#include "../cpstd/cpbitarr.h"
 #include "../cpstd/cpmath.h"
 #include "../cpstd/cpvec.h"
 
@@ -222,13 +223,18 @@ typedef vec4f color;
 
 #define CPL_IMPLEMENTATION
 
+#ifdef __cplusplus
+namespace cpl {
+extern "C" {
+#endif
+
 // {{{ Logging
 
-typedef enum { LOG_INFO, LOG_WARN, LOG_ERR, LOG_NONE } log_level;
-void cpl_log(log_level level, c8 *msg, ...);
+typedef enum { LOG_INFO, LOG_WARN, LOG_ERR, LOG_NONE } cpl_log_level;
+void cpl_log(cpl_log_level level, c8 *msg, ...);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_log(log_level level, c8 *msg, ...) {
+void cpl_log(cpl_log_level level, c8 *msg, ...) {
     va_list args;
     va_start(args, msg);
     switch (level) {
@@ -291,10 +297,10 @@ void cpl_log(log_level level, c8 *msg, ...) {
 
 // {{{ Screenshot
 
-void cpl_screenshot(c8 *path, vec2f screen);
+void screenshot(c8 *path, vec2f screen);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_screenshot(c8 *path, vec2f screen) {
+void screenshot(c8 *path, vec2f screen) {
     static i32 screenshots_taken = 0;
     i32 w = (i32)screen.x;
     i32 h = (i32)screen.y;
@@ -321,14 +327,14 @@ void cpl_screenshot(c8 *path, vec2f screen) {
 
 // {{{ Profiler
 
-u32 cpl_get_heap_size();
-u32 cpl_get_heap_used();
-u32 cpl_get_heap_free();
-u32 cpl_get_stack_size();
-u32 cpl_get_stack_used();
+u32 get_heap_size();
+u32 get_heap_used();
+u32 get_heap_free();
+u32 get_stack_size();
+u32 get_stack_used();
 
 #ifdef CPL_IMPLEMENTATION
-u32 cpl_get_heap_size() {
+u32 get_heap_size() {
 #ifndef __EMSCRIPTEN__
     struct mallinfo2 mi = mallinfo2();
     return mi.arena;
@@ -337,7 +343,7 @@ u32 cpl_get_heap_size() {
 #endif
 }
 
-u32 cpl_get_heap_used() {
+u32 get_heap_used() {
 #ifndef __EMSCRIPTEN__
     struct mallinfo2 mi = mallinfo2();
     return mi.uordblks;
@@ -346,7 +352,7 @@ u32 cpl_get_heap_used() {
 #endif
 }
 
-u32 cpl_get_heap_free() {
+u32 get_heap_free() {
 #ifndef __EMSCRIPTEN__
     struct mallinfo2 mi = mallinfo2();
     return mi.fordblks;
@@ -355,7 +361,7 @@ u32 cpl_get_heap_free() {
 #endif
 }
 
-u32 cpl_get_stack_size() {
+u32 get_stack_size() {
 #ifndef __EMSCRIPTEN__
     pthread_attr_t attr;
     pthread_getattr_np(pthread_self(), &attr);
@@ -368,7 +374,7 @@ u32 cpl_get_stack_size() {
 #endif
 }
 
-u32 cpl_get_stack_used() {
+u32 get_stack_used() {
 #ifndef __EMSCRIPTEN__
     pthread_attr_t attr;
     pthread_getattr_np(pthread_self(), &attr);
@@ -389,16 +395,15 @@ u32 cpl_get_stack_used() {
 
 // {{{ OpenGL Debug
 
-GLenum _cpl_check_gl_error(c8 *path, u32 line);
-void cpl_check_opengl_error();
-void cpl_enable_opengl_debug();
-void APIENTRY _cpl_gl_debug_out(GLenum src, GLenum type, u32 id,
-                                GLenum severity, [[maybe_unused]] GLsizei len,
-                                const c8 *msg,
-                                [[maybe_unused]] const void *usr_prog);
+GLenum _check_gl_error(c8 *path, u32 line);
+void check_opengl_error();
+void enable_opengl_debug();
+void APIENTRY _gl_debug_out(GLenum src, GLenum type, u32 id, GLenum severity,
+                            [[maybe_unused]] GLsizei len, const c8 *msg,
+                            [[maybe_unused]] const void *usr_prog);
 
 #ifdef CPL_IMPLEMENTATION
-GLenum _cpl_check_gl_error(c8 *path, u32 line) {
+GLenum _check_gl_error(c8 *path, u32 line) {
     GLenum errorCode;
     while ((errorCode = glGetError()) != GL_NO_ERROR) {
         c8 *error;
@@ -433,12 +438,11 @@ GLenum _cpl_check_gl_error(c8 *path, u32 line) {
     return errorCode;
 }
 
-void cpl_check_opengl_error() { _cpl_check_gl_error(__FILE__, __LINE__); }
+void check_opengl_error() { _check_gl_error(__FILE__, __LINE__); }
 
-void APIENTRY _cpl_gl_debug_out(GLenum src, GLenum type, u32 id,
-                                GLenum severity, [[maybe_unused]] GLsizei len,
-                                const c8 *msg,
-                                [[maybe_unused]] const void *usr_prog) {
+void APIENTRY _gl_debug_out(GLenum src, GLenum type, u32 id, GLenum severity,
+                            [[maybe_unused]] GLsizei len, const c8 *msg,
+                            [[maybe_unused]] const void *usr_prog) {
     if (id == 131169 || id == 131185 || id == 131218 || id == 131204) {
         return;
     }
@@ -527,7 +531,7 @@ void APIENTRY _cpl_gl_debug_out(GLenum src, GLenum type, u32 id,
     fprintf(stderr, "\n");
 }
 
-void cpl_enable_opengl_debug() {
+void enable_opengl_debug() {
     i32 flags = 0;
     glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
 
@@ -544,7 +548,7 @@ void cpl_enable_opengl_debug() {
 
         glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-        glDebugMessageCallback(_cpl_gl_debug_out, NULLPTR);
+        glDebugMessageCallback(_gl_debug_out, NULLPTR);
         glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0,
                               NULLPTR, GL_TRUE);
     }
@@ -559,44 +563,44 @@ typedef struct {
     u32 id;
 } shader;
 
-b8 _cpl_check_shader_compile_errors(u32 shader, c8 *type);
-c8 *_cpl_read_shader_file(c8 *path);
-void cpl_create_shader(shader *s, c8 *vert_path, c8 *frag_path);
-void cpl_use_shader(shader *s);
-void cpl_shader_set_b8(shader *s, c8 *name, b8 val);
-void cpl_shader_set_i32(shader *s, c8 *name, i32 val);
-void cpl_shader_set_f32(shader *s, c8 *name, f32 val);
-void cpl_shader_set_rgba(shader *s, c8 *name, vec4f c);
-void cpl_shader_set_mat4f(shader *s, c8 *name, mat4f mat);
-void cpl_shader_set_vec2f(shader *s, c8 *name, vec2f v);
-void cpl_shader_set_vec3f(shader *s, c8 *name, vec3f v);
+b8 _check_shader_compile_errors(u32 shader, c8 *type);
+c8 *_read_shader_file(c8 *path);
+void create_shader(shader *s, c8 *vert_path, c8 *frag_path);
+void use_shader(shader *s);
+void shader_set_b8(shader *s, c8 *name, b8 val);
+void shader_set_i32(shader *s, c8 *name, i32 val);
+void shader_set_f32(shader *s, c8 *name, f32 val);
+void shader_set_rgba(shader *s, c8 *name, vec4f c);
+void shader_set_mat4f(shader *s, c8 *name, mat4f mat);
+void shader_set_vec2f(shader *s, c8 *name, vec2f v);
+void shader_set_vec3f(shader *s, c8 *name, vec3f v);
 
 #ifdef CPL_IMPLEMENTATION
-b8 _cpl_check_shader_compile_errors(u32 shader, c8 *type) {
+b8 _check_shader_compile_errors(u32 shader, c8 *type) {
     i32 success = 0;
-    c8 info_log[1024];
+    c8 info_cpl_log[1024];
 
     if (strcmp(type, "PROGRAM") == 0) {
         glGetProgramiv(shader, GL_LINK_STATUS, &success);
         if (!success) {
-            glGetProgramInfoLog(shader, 1024, NULLPTR, info_log);
+            glGetProgramInfoLog(shader, 1024, NULLPTR, info_cpl_log);
             cpl_log(LOG_ERR, "[CPL] [ERROR] Program linking error:\n%s\n",
-                    info_log);
+                    info_cpl_log);
             return false;
         }
     } else {
         glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
         if (!success) {
-            glGetShaderInfoLog(shader, 1024, NULLPTR, info_log);
+            glGetShaderInfoLog(shader, 1024, NULLPTR, info_cpl_log);
             cpl_log(LOG_ERR, "[CPL] [ERROR] Shader compilation error: %s\n%s\n",
-                    type, info_log);
+                    type, info_cpl_log);
             return false;
         }
     }
     return true;
 }
 
-c8 *_cpl_read_shader_file(c8 *path) {
+c8 *_read_shader_file(c8 *path) {
     FILE *f = fopen(path, "rb");
     if (!f) {
         return NULLPTR;
@@ -624,25 +628,25 @@ c8 *_cpl_read_shader_file(c8 *path) {
     return buffer;
 }
 
-void cpl_create_shader(shader *s, c8 *vert_path, c8 *frag_path) {
-    c8 *vert_code = _cpl_read_shader_file(vert_path);
-    c8 *frag_code = _cpl_read_shader_file(frag_path);
+void create_shader(shader *s, c8 *vert_path, c8 *frag_path) {
+    c8 *vert_code = _read_shader_file(vert_path);
+    c8 *frag_code = _read_shader_file(frag_path);
 
     u32 vert = 0;
     u32 frag = 0;
     vert = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vert, 1, (const GLchar *const *)&vert_code, NULLPTR);
     glCompileShader(vert);
-    _cpl_check_shader_compile_errors(vert, "VERTEX");
+    _check_shader_compile_errors(vert, "VERTEX");
     frag = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(frag, 1, (const GLchar *const *)&frag_code, NULLPTR);
     glCompileShader(frag);
-    _cpl_check_shader_compile_errors(frag, "FRAGMENT");
+    _check_shader_compile_errors(frag, "FRAGMENT");
     s->id = glCreateProgram();
     glAttachShader(s->id, vert);
     glAttachShader(s->id, frag);
     glLinkProgram(s->id);
-    _cpl_check_shader_compile_errors(s->id, "PROGRAM");
+    _check_shader_compile_errors(s->id, "PROGRAM");
 
     free(vert_code);
     free(frag_code);
@@ -650,35 +654,35 @@ void cpl_create_shader(shader *s, c8 *vert_path, c8 *frag_path) {
     glDeleteShader(frag);
 }
 
-void cpl_use_shader(shader *s) { glUseProgram(s->id); }
+void use_shader(shader *s) { glUseProgram(s->id); }
 
-void cpl_shader_set_b8(shader *s, c8 *name, b8 val) {
+void shader_set_b8(shader *s, c8 *name, b8 val) {
     glUniform1i(glGetUniformLocation(s->id, name), val);
 }
 
-void cpl_shader_set_i32(shader *s, c8 *name, i32 val) {
+void shader_set_i32(shader *s, c8 *name, i32 val) {
     glUniform1i(glGetUniformLocation(s->id, name), val);
 }
 
-void cpl_shader_set_f32(shader *s, c8 *name, f32 val) {
+void shader_set_f32(shader *s, c8 *name, f32 val) {
     glUniform1f(glGetUniformLocation(s->id, name), val);
 }
 
-void cpl_shader_set_rgba(shader *s, c8 *name, vec4f c) {
+void shader_set_rgba(shader *s, c8 *name, vec4f c) {
     glUniform4f(glGetUniformLocation(s->id, name), c.r / 255.0f, c.g / 255.0f,
                 c.b / 255.0f, c.a / 255.0f);
 }
 
-void cpl_shader_set_mat4f(shader *s, c8 *name, mat4f mat) {
+void shader_set_mat4f(shader *s, c8 *name, mat4f mat) {
     glUniformMatrix4fv(glGetUniformLocation(s->id, name), 1, GL_FALSE,
                        (const GLfloat *)mat.data);
 }
 
-void cpl_shader_set_vec2f(shader *s, c8 *name, vec2f v) {
+void shader_set_vec2f(shader *s, c8 *name, vec2f v) {
     glUniform2f(glGetUniformLocation(s->id, name), v.x, v.y);
 }
 
-void cpl_shader_set_vec3f(shader *s, c8 *name, vec3f v) {
+void shader_set_vec3f(shader *s, c8 *name, vec3f v) {
     glUniform3f(glGetUniformLocation(s->id, name), v.x, v.y, v.z);
 }
 #endif
@@ -695,12 +699,12 @@ typedef struct {
     u32 vbo, vao, ebo;
 } rect;
 
-void cpl_create_rect(rect *r, vec2f pos, vec2f size, vec4f color, f32 rot);
-void cpl_destroy_rect(rect *r);
-void cpl_draw_rect_raw(shader *s, rect *r);
+void create_rect(rect *r, vec2f pos, vec2f size, vec4f color, f32 rot);
+void destroy_rect(rect *r);
+void draw_rect_raw(shader *s, rect *r);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_create_rect(rect *r, vec2f pos, vec2f size, vec4f color, f32 rot) {
+void create_rect(rect *r, vec2f pos, vec2f size, vec4f color, f32 rot) {
     r->pos = pos;
     r->size = size;
     r->color = color;
@@ -733,7 +737,7 @@ void cpl_create_rect(rect *r, vec2f pos, vec2f size, vec4f color, f32 rot) {
     glBindVertexArray(0);
 }
 
-void cpl_destroy_rect(rect *r) {
+void destroy_rect(rect *r) {
     if (r->vao != 0 && glIsVertexArray(r->vao)) {
         glDeleteVertexArrays(1, &r->vao);
         r->vao = 0;
@@ -748,7 +752,7 @@ void cpl_destroy_rect(rect *r) {
     }
 }
 
-void cpl_draw_rect_raw(shader *s, rect *r) {
+void draw_rect_raw(shader *s, rect *r) {
     mat4f transform;
     mat4f_identity(&transform);
 
@@ -759,8 +763,8 @@ void cpl_draw_rect_raw(shader *s, rect *r) {
     mat4f_translate(&transform,
                     &(vec3f){-r->size.x * 0.5f, -r->size.y * 0.5f, 0.0f});
 
-    cpl_shader_set_mat4f(s, "transform", transform);
-    cpl_shader_set_rgba(s, "input_color", r->color);
+    shader_set_mat4f(s, "transform", transform);
+    shader_set_rgba(s, "input_color", r->color);
 
     glBindVertexArray(r->vao);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULLPTR);
@@ -780,14 +784,12 @@ typedef struct {
     u32 vbo, vao;
 } triangle;
 
-void cpl_create_triangle(triangle *t, vec2f pos, vec2f size, vec4f color,
-                         f32 rot);
-void cpl_destroy_triangle(triangle *t);
-void cpl_draw_triangle_raw(shader *s, triangle *t);
+void create_triangle(triangle *t, vec2f pos, vec2f size, vec4f color, f32 rot);
+void destroy_triangle(triangle *t);
+void draw_triangle_raw(shader *s, triangle *t);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_create_triangle(triangle *t, vec2f pos, vec2f size, vec4f color,
-                         f32 rot) {
+void create_triangle(triangle *t, vec2f pos, vec2f size, vec4f color, f32 rot) {
     t->pos = pos;
     t->size = size;
     t->color = color;
@@ -811,7 +813,7 @@ void cpl_create_triangle(triangle *t, vec2f pos, vec2f size, vec4f color,
     glBindVertexArray(0);
 }
 
-void cpl_destroy_triangle(triangle *t) {
+void destroy_triangle(triangle *t) {
     if (t->vao != 0 && glIsVertexArray(t->vao)) {
         glDeleteVertexArrays(1, &t->vao);
         t->vao = 0;
@@ -822,7 +824,7 @@ void cpl_destroy_triangle(triangle *t) {
     }
 }
 
-void cpl_draw_triangle_raw(shader *s, triangle *t) {
+void draw_triangle_raw(shader *s, triangle *t) {
     mat4f transform;
     mat4f_identity(&transform);
 
@@ -833,8 +835,8 @@ void cpl_draw_triangle_raw(shader *s, triangle *t) {
     mat4f_translate(&transform,
                     &(vec3f){-t->size.x * 0.5f, -t->size.y * 0.5f, 0.0f});
 
-    cpl_shader_set_mat4f(s, "transform", transform);
-    cpl_shader_set_rgba(s, "input_color", t->color);
+    shader_set_mat4f(s, "transform", transform);
+    shader_set_rgba(s, "input_color", t->color);
 
     glBindVertexArray(t->vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -854,12 +856,12 @@ typedef struct {
     i32 vertex_cnt;
 } circle;
 
-void cpl_create_circle(circle *c, vec2f pos, f32 radius, vec4f color);
-void cpl_destroy_circle(circle *c);
-void cpl_draw_circle_raw(shader *s, circle *c);
+void create_circle(circle *c, vec2f pos, f32 radius, vec4f color);
+void destroy_circle(circle *c);
+void draw_circle_raw(shader *s, circle *c);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_create_circle(circle *c, vec2f pos, f32 radius, vec4f color) {
+void create_circle(circle *c, vec2f pos, f32 radius, vec4f color) {
     c->pos = pos;
     c->color = color;
     c->radius = radius;
@@ -893,7 +895,7 @@ void cpl_create_circle(circle *c, vec2f pos, f32 radius, vec4f color) {
     free(vertices);
 }
 
-void cpl_destroy_circle(circle *c) {
+void destroy_circle(circle *c) {
     if (c->vao != 0 && glIsVertexArray(c->vao)) {
         glDeleteVertexArrays(1, &c->vao);
         c->vao = 0;
@@ -904,13 +906,13 @@ void cpl_destroy_circle(circle *c) {
     }
 }
 
-void cpl_draw_circle_raw(shader *s, circle *c) {
+void draw_circle_raw(shader *s, circle *c) {
     mat4f transform;
     mat4f_identity(&transform);
     mat4f_translate(&transform, &(vec3f){c->pos.x, c->pos.y, 0.0f});
 
-    cpl_shader_set_mat4f(s, "transform", transform);
-    cpl_shader_set_rgba(s, "input_color", c->color);
+    shader_set_mat4f(s, "transform", transform);
+    shader_set_rgba(s, "input_color", c->color);
 
     glBindVertexArray(c->vao);
     glDrawArrays(GL_TRIANGLE_FAN, 0, c->vertex_cnt);
@@ -928,12 +930,12 @@ typedef struct {
     u32 vao, vbo;
 } line;
 
-void cpl_create_line(line *l, vec2f start, vec2f end, vec4f color);
-void cpl_destroy_line(line *l);
-void cpl_draw_line_raw(shader *s, line *l);
+void create_line(line *l, vec2f start, vec2f end, vec4f color);
+void destroy_line(line *l);
+void draw_line_raw(shader *s, line *l);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_create_line(line *l, vec2f start, vec2f end, vec4f color) {
+void create_line(line *l, vec2f start, vec2f end, vec4f color) {
     l->start = start;
     l->end = end;
     l->color = color;
@@ -954,7 +956,7 @@ void cpl_create_line(line *l, vec2f start, vec2f end, vec4f color) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 }
-void cpl_destroy_line(line *l) {
+void destroy_line(line *l) {
     if (l->vao != 0 && glIsVertexArray(l->vao)) {
         glDeleteVertexArrays(1, &l->vao);
         l->vao = 0;
@@ -965,13 +967,13 @@ void cpl_destroy_line(line *l) {
     }
 }
 
-void cpl_draw_line_raw(shader *s, line *l) {
+void draw_line_raw(shader *s, line *l) {
     mat4f transform;
     mat4f_identity(&transform);
     mat4f_translate(&transform, &(vec3f){0.0f, 0.0f, 0.0f});
 
-    cpl_shader_set_mat4f(s, "transform", transform);
-    cpl_shader_set_rgba(s, "input_color", l->color);
+    shader_set_mat4f(s, "transform", transform);
+    shader_set_rgba(s, "input_color", l->color);
     glBindVertexArray(l->vao);
     glDrawArrays(GL_LINES, 0, 2);
     glBindVertexArray(0);
@@ -997,15 +999,15 @@ typedef struct {
     u32 vbo, vao, ebo;
 } texture2D;
 
-void cpl_load_texture(texture *t, c8 *path, texture_filtering filter);
-void cpl_unload_texture(texture *t);
-void cpl_create_texture2D(texture2D *t, vec2f pos, vec2f size, f32 rot,
-                          vec4f color, texture *tex);
-void cpl_destroy_texture2D(texture2D *t);
-void cpl_draw_texture2D_raw(shader *s, texture2D *t);
+void load_texture(texture *t, c8 *path, texture_filtering filter);
+void unload_texture(texture *t);
+void create_texture2D(texture2D *t, vec2f pos, vec2f size, f32 rot, vec4f color,
+                      texture *tex);
+void destroy_texture2D(texture2D *t);
+void draw_texture2D_raw(shader *s, texture2D *t);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_load_texture(texture *t, c8 *path, texture_filtering filter) {
+void load_texture(texture *t, c8 *path, texture_filtering filter) {
     glGenTextures(1, &t->id);
     glBindTexture(GL_TEXTURE_2D, t->id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -1039,14 +1041,14 @@ void cpl_load_texture(texture *t, c8 *path, texture_filtering filter) {
     stbi_image_free(data);
 }
 
-void cpl_unload_texture(texture *t) {
+void unload_texture(texture *t) {
     if (t->id != 0) {
         glDeleteTextures(1, &t->id);
     }
 }
 
-void cpl_create_texture2D(texture2D *t, vec2f pos, vec2f size, f32 rot,
-                          vec4f color, texture *tex) {
+void create_texture2D(texture2D *t, vec2f pos, vec2f size, f32 rot, vec4f color,
+                      texture *tex) {
     t->pos = pos;
     t->size = size;
     t->rot = rot;
@@ -1086,7 +1088,7 @@ void cpl_create_texture2D(texture2D *t, vec2f pos, vec2f size, f32 rot,
     glBindVertexArray(0);
 }
 
-void cpl_destroy_texture2D(texture2D *t) {
+void destroy_texture2D(texture2D *t) {
     if (t->vao != 0 && glIsVertexArray(t->vao)) {
         glDeleteVertexArrays(1, &t->vao);
         t->vao = 0;
@@ -1102,7 +1104,7 @@ void cpl_destroy_texture2D(texture2D *t) {
     t->tex = NULLPTR;
 }
 
-void cpl_draw_texture2D_raw(shader *s, texture2D *t) {
+void draw_texture2D_raw(shader *s, texture2D *t) {
     mat4f transform;
     mat4f_identity(&transform);
 
@@ -1113,9 +1115,9 @@ void cpl_draw_texture2D_raw(shader *s, texture2D *t) {
     mat4f_translate(&transform,
                     &(vec3f){-t->size.x * 0.5f, -t->size.y * 0.5f, 0.0f});
 
-    cpl_shader_set_i32(s, "tex", 0);
-    cpl_shader_set_mat4f(s, "transform", transform);
-    cpl_shader_set_rgba(s, "input_color", t->color);
+    shader_set_i32(s, "tex", 0);
+    shader_set_mat4f(s, "transform", transform);
+    shader_set_rgba(s, "input_color", t->color);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, t->tex->id);
@@ -1143,14 +1145,14 @@ typedef struct {
     vec_letters letters;
 } font;
 
-void cpl_create_font(font *f, c8 *path, c8 *name, texture_filtering filter);
-void cpl_delete_font(font *f);
-void cpl_draw_text_raw(shader *s, font *f, c8 *text, vec2f pos, f32 scale,
-                       vec4f color);
-vec2f cpl_get_text_size(font *f, c8 *text, f32 scale);
+void create_font(font *f, c8 *path, c8 *name, texture_filtering filter);
+void delete_font(font *f);
+void draw_text_raw(shader *s, font *f, c8 *text, vec2f pos, f32 scale,
+                   vec4f color);
+vec2f get_text_size(font *f, c8 *text, f32 scale);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_create_font(font *f, c8 *path, c8 *name, texture_filtering filter) {
+void create_font(font *f, c8 *path, c8 *name, texture_filtering filter) {
     FT_Library ft;
     if (FT_Init_FreeType(&ft)) {
         cpl_log(LOG_ERR, "Could not init FreeType Library");
@@ -1220,7 +1222,7 @@ void cpl_create_font(font *f, c8 *path, c8 *name, texture_filtering filter) {
     FT_Done_FreeType(ft);
 }
 
-void cpl_delete_font(font *f) {
+void delete_font(font *f) {
     if (f->vao != 0 && glIsVertexArray(f->vao)) {
         glDeleteVertexArrays(1, &f->vao);
         f->vao = 0;
@@ -1235,9 +1237,9 @@ void cpl_delete_font(font *f) {
     vec_letters_destroy(&f->letters);
 }
 
-void cpl_draw_text_raw(shader *s, font *f, c8 *text, vec2f pos, f32 scale,
-                       vec4f color) {
-    cpl_shader_set_vec3f(s, "text_color", (vec3f){color.r, color.g, color.b});
+void draw_text_raw(shader *s, font *f, c8 *text, vec2f pos, f32 scale,
+                   vec4f color) {
+    shader_set_vec3f(s, "text_color", (vec3f){color.r, color.g, color.b});
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(f->vao);
 
@@ -1273,7 +1275,7 @@ void cpl_draw_text_raw(shader *s, font *f, c8 *text, vec2f pos, f32 scale,
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-vec2f cpl_get_text_size(font *f, c8 *text, f32 scale) {
+vec2f get_text_size(font *f, c8 *text, f32 scale) {
     f32 width = 0.0f;
     f32 height = 0.0f;
     f32 max_above_base = 0.0f;
@@ -1302,54 +1304,53 @@ typedef struct {
     f32 pitch;
 } audio;
 
-ma_engine _cpl_audio_engine;
-ma_sound *_cpl_music;
-ma_sound **_cpl_active_sounds;
-u32 _cpl_active_sounds_size;
-u32 _cpl_active_sounds_cap;
+ma_engine _audio_engine;
+ma_sound *_music;
+ma_sound **_active_sounds;
+u32 _active_sounds_size;
+u32 _active_sounds_cap;
 
-void cpl_audio_init();
-audio cpl_load_audio(c8 *path);
-void cpl_audio_update();
-void cpl_audio_play_sound(audio *a);
-void cpl_audio_play_music(audio *a);
-void cpl_audio_pause_music();
-void cpl_audio_resume_music();
-void cpl_audio_stop_music();
-void cpl_audio_close();
+void audio_init();
+audio load_audio(c8 *path);
+void audio_update();
+void audio_play_sound(audio *a);
+void audio_play_music(audio *a);
+void audio_pause_music();
+void audio_resume_music();
+void audio_stop_music();
+void audio_close();
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_audio_init() {
-    if (ma_engine_init(NULLPTR, &_cpl_audio_engine) != MA_SUCCESS) {
+void audio_init() {
+    if (ma_engine_init(NULLPTR, &_audio_engine) != MA_SUCCESS) {
         cpl_log(LOG_ERR, "Failed to init audio!");
         exit(-1);
     }
-    _cpl_active_sounds_cap = 16;
-    _cpl_active_sounds_size = 0;
-    _cpl_active_sounds = malloc(_cpl_active_sounds_cap * sizeof(ma_sound *));
-    _cpl_music = NULLPTR;
+    _active_sounds_cap = 16;
+    _active_sounds_size = 0;
+    _active_sounds = malloc(_active_sounds_cap * sizeof(ma_sound *));
+    _music = NULLPTR;
 }
 
-audio cpl_load_audio(c8 *path) { return (audio){path, 1.0f, 1.0f}; }
+audio load_audio(c8 *path) { return (audio){path, 1.0f, 1.0f}; }
 
-void cpl_audio_update() {
+void audio_update() {
     u32 w = 0;
-    for (u32 i = 0; i < _cpl_active_sounds_size; i++) {
-        if (ma_sound_is_playing(_cpl_active_sounds[i])) {
-            _cpl_active_sounds[w++] = _cpl_active_sounds[i];
+    for (u32 i = 0; i < _active_sounds_size; i++) {
+        if (ma_sound_is_playing(_active_sounds[i])) {
+            _active_sounds[w++] = _active_sounds[i];
         } else {
-            ma_sound_uninit(_cpl_active_sounds[i]);
-            free(_cpl_active_sounds[i]);
+            ma_sound_uninit(_active_sounds[i]);
+            free(_active_sounds[i]);
         }
     }
-    _cpl_active_sounds_size = w;
+    _active_sounds_size = w;
 }
 
-void cpl_audio_play_sound(audio *a) {
+void audio_play_sound(audio *a) {
     ma_sound *sound = malloc(sizeof(ma_sound));
-    if (ma_sound_init_from_file(&_cpl_audio_engine, a->path,
-                                MA_SOUND_FLAG_DECODE, NULLPTR, NULLPTR,
-                                sound) != MA_SUCCESS) {
+    if (ma_sound_init_from_file(&_audio_engine, a->path, MA_SOUND_FLAG_DECODE,
+                                NULLPTR, NULLPTR, sound) != MA_SUCCESS) {
         cpl_log(LOG_ERR, "Failed to init sound!");
         free(sound);
         return;
@@ -1359,68 +1360,67 @@ void cpl_audio_play_sound(audio *a) {
     ma_sound_set_looping(sound, MA_FALSE);
     ma_sound_start(sound);
 
-    if (_cpl_active_sounds_size >= _cpl_active_sounds_cap) {
-        _cpl_active_sounds_cap *= 2;
-        ma_sound **tmp = realloc(_cpl_active_sounds,
-                                 _cpl_active_sounds_cap * sizeof(ma_sound *));
+    if (_active_sounds_size >= _active_sounds_cap) {
+        _active_sounds_cap *= 2;
+        ma_sound **tmp =
+            realloc(_active_sounds, _active_sounds_cap * sizeof(ma_sound *));
         if (!tmp) {
             cpl_log(LOG_ERR, "Realloc sounds failed!");
             return;
         }
-        _cpl_active_sounds = tmp;
+        _active_sounds = tmp;
     }
-    _cpl_active_sounds[_cpl_active_sounds_size++] = sound;
+    _active_sounds[_active_sounds_size++] = sound;
 }
 
-void cpl_audio_play_music(audio *a) {
-    if (_cpl_music) {
-        ma_sound_stop(_cpl_music);
-        ma_sound_uninit(_cpl_music);
-        free(_cpl_music);
-        _cpl_music = NULLPTR;
+void audio_play_music(audio *a) {
+    if (_music) {
+        ma_sound_stop(_music);
+        ma_sound_uninit(_music);
+        free(_music);
+        _music = NULLPTR;
     }
-    _cpl_music = malloc(sizeof(ma_sound));
-    if (ma_sound_init_from_file(&_cpl_audio_engine, a->path,
-                                MA_SOUND_FLAG_DECODE, NULLPTR, NULLPTR,
-                                _cpl_music) != MA_SUCCESS) {
+    _music = malloc(sizeof(ma_sound));
+    if (ma_sound_init_from_file(&_audio_engine, a->path, MA_SOUND_FLAG_DECODE,
+                                NULLPTR, NULLPTR, _music) != MA_SUCCESS) {
         cpl_log(LOG_ERR, "Failed to load music!");
-        free(_cpl_music);
-        _cpl_music = NULLPTR;
+        free(_music);
+        _music = NULLPTR;
         return;
     }
-    ma_sound_set_pitch(_cpl_music, a->pitch);
-    ma_sound_set_looping(_cpl_music, MA_TRUE);
-    ma_sound_start(_cpl_music);
+    ma_sound_set_pitch(_music, a->pitch);
+    ma_sound_set_looping(_music, MA_TRUE);
+    ma_sound_start(_music);
 }
 
-void cpl_audio_pause_music() {
-    if (_cpl_music) {
-        ma_sound_stop(_cpl_music);
+void audio_pause_music() {
+    if (_music) {
+        ma_sound_stop(_music);
     }
 }
 
-void cpl_audio_resume_music() {
-    if (_cpl_music) {
-        ma_sound_start(_cpl_music);
+void audio_resume_music() {
+    if (_music) {
+        ma_sound_start(_music);
     }
 }
 
-void cpl_audio_stop_music() {
-    if (_cpl_music) {
-        ma_sound_stop(_cpl_music);
-        ma_sound_seek_to_pcm_frame(_cpl_music, 0);
+void audio_stop_music() {
+    if (_music) {
+        ma_sound_stop(_music);
+        ma_sound_seek_to_pcm_frame(_music, 0);
     }
 }
 
-void cpl_audio_close() {
-    cpl_audio_update();
-    free(_cpl_active_sounds);
-    if (_cpl_music) {
-        ma_sound_stop(_cpl_music);
-        ma_sound_uninit(_cpl_music);
-        free(_cpl_music);
+void audio_close() {
+    audio_update();
+    free(_active_sounds);
+    if (_music) {
+        ma_sound_stop(_music);
+        ma_sound_uninit(_music);
+        free(_music);
     }
-    ma_engine_uninit(&_cpl_audio_engine);
+    ma_engine_uninit(&_audio_engine);
 }
 #endif
 
@@ -1433,14 +1433,14 @@ typedef struct {
     u32 vbo, vao, rbo, framebuffer, tex_color_buffer;
 } screen_quad;
 
-void cpl_create_screen_quad(screen_quad *q, i32 width, i32 height);
-void cpl_screen_quad_resize(screen_quad *q, i32 width, i32 height);
-void cpl_screen_quad_bind(screen_quad *q);
-void cpl_screen_quad_unbind();
-void cpl_screen_quad_draw(screen_quad *q, shader *s);
+void create_screen_quad(screen_quad *q, i32 width, i32 height);
+void screen_quad_resize(screen_quad *q, i32 width, i32 height);
+void screen_quad_bind(screen_quad *q);
+void screen_quad_unbind();
+void screen_quad_draw(screen_quad *q, shader *s);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_create_screen_quad(screen_quad *q, i32 width, i32 height) {
+void create_screen_quad(screen_quad *q, i32 width, i32 height) {
     q->size = (vec2f){(f32)width, (f32)height};
 
     f32 vertices[30] = {-1.0f, 1.0f, 0.0f, 0.0f,  1.0f, -1.0f, -1.0f, 0.0f,
@@ -1487,7 +1487,7 @@ void cpl_create_screen_quad(screen_quad *q, i32 width, i32 height) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void cpl_screen_quad_resize(screen_quad *q, i32 width, i32 height) {
+void screen_quad_resize(screen_quad *q, i32 width, i32 height) {
     q->size = (vec2f){(f32)width, (f32)height};
 
     glBindTexture(GL_TEXTURE_2D, q->tex_color_buffer);
@@ -1501,17 +1501,17 @@ void cpl_screen_quad_resize(screen_quad *q, i32 width, i32 height) {
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 }
 
-void cpl_screen_quad_bind(screen_quad *q) {
+void screen_quad_bind(screen_quad *q) {
     glBindFramebuffer(GL_FRAMEBUFFER, q->framebuffer);
 }
-void cpl_screen_quad_unbind() {
+void screen_quad_unbind() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void cpl_screen_quad_draw(screen_quad *q, shader *s) {
-    cpl_use_shader(s);
+void screen_quad_draw(screen_quad *q, shader *s) {
+    use_shader(s);
     glBindVertexArray(q->vao);
     glBindTexture(GL_TEXTURE_2D, q->tex_color_buffer);
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -1535,14 +1535,14 @@ typedef struct {
     f32 radius;
 } circle_collider;
 
-b8 cpl_check_collision_rects(rect_collider a, rect_collider b);
-b8 cpl_check_collision_circle_rect(circle_collider a, rect_collider b);
-b8 cpl_check_collision_vec2f_rect(vec2f a, rect_collider b);
-b8 cpl_check_collision_circles(circle_collider a, circle_collider b);
-b8 cpl_check_collision_vec2f_circle(vec2f a, circle_collider b);
+b8 check_collision_rects(rect_collider a, rect_collider b);
+b8 check_collision_circle_rect(circle_collider a, rect_collider b);
+b8 check_collision_vec2f_rect(vec2f a, rect_collider b);
+b8 check_collision_circles(circle_collider a, circle_collider b);
+b8 check_collision_vec2f_circle(vec2f a, circle_collider b);
 
 #ifdef CPL_IMPLEMENTATION
-b8 cpl_check_collision_rects(rect_collider a, rect_collider b) {
+b8 check_collision_rects(rect_collider a, rect_collider b) {
     b8 collision_x =
         a.pos.x + a.size.x >= b.pos.x && b.pos.x + b.size.x >= a.pos.x;
     b8 collision_y =
@@ -1551,7 +1551,7 @@ b8 cpl_check_collision_rects(rect_collider a, rect_collider b) {
     return collision_x && collision_y;
 }
 
-b8 cpl_check_collision_circle_rect(circle_collider a, rect_collider b) {
+b8 check_collision_circle_rect(circle_collider a, rect_collider b) {
     vec2f circle_center = a.pos;
     vec2f rect_center =
         vec2f_add(&b.pos, &VEC2F(b.size.x * 0.5f, b.size.y * 0.5f));
@@ -1565,19 +1565,19 @@ b8 cpl_check_collision_circle_rect(circle_collider a, rect_collider b) {
     return vec2f_length(&delta) <= a.radius;
 }
 
-b8 cpl_check_collision_vec2f_rect(vec2f a, rect_collider b) {
+b8 check_collision_vec2f_rect(vec2f a, rect_collider b) {
     return b.pos.x < a.x && a.x < b.pos.x + b.size.x && b.pos.y < a.y &&
            a.y < b.pos.y + b.size.y;
 }
 
-b8 cpl_check_collision_circles(circle_collider a, circle_collider b) {
+b8 check_collision_circles(circle_collider a, circle_collider b) {
     vec2f dist = vec2f_sub(&a.pos, &b.pos);
     f32 distance2 = (dist.x * dist.x) + (dist.y * dist.y);
     f32 radius_sum = a.radius + b.radius;
     return distance2 <= radius_sum * radius_sum;
 }
 
-b8 cpl_check_collision_vec2f_circle(vec2f a, circle_collider b) {
+b8 check_collision_vec2f_circle(vec2f a, circle_collider b) {
     vec2f dist = vec2f_sub(&a, &b.pos);
     f32 distance2 = (dist.x * dist.x) + (dist.y * dist.y);
     return distance2 <= b.radius * b.radius;
@@ -1588,41 +1588,41 @@ b8 cpl_check_collision_vec2f_circle(vec2f a, circle_collider b) {
 
 // {{{ Timing
 
-u32 _cpl_nb_frames = 0;
-f32 _cpl_last_time = 0.0f;
-f32 _cpl_last_frame = 0.0f;
-f32 _cpl_dt = 0.0f;
-f32 _cpl_time_scale = 1.0f;
-u32 _cpl_fps = 0;
+u32 _nb_frames = 0;
+f32 _last_time = 0.0f;
+f32 _last_frame = 0.0f;
+f32 _dt = 0.0f;
+f32 _time_scale = 1.0f;
+u32 _fps = 0;
 
-void cpl_calc_fps();
-u32 cpl_get_fps();
-void cpl_calc_dt();
-f32 cpl_get_dt();
-f32 cpl_get_time();
-f32 cpl_get_time_scale();
-void cpl_set_time_scale(f32 scale);
+void calc_fps();
+u32 get_fps();
+void calc_dt();
+f32 get_dt();
+f32 get_time();
+f32 get_time_scale();
+void set_time_scale(f32 scale);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_calc_fps() {
-    f32 cur_time = cpl_get_time();
-    _cpl_nb_frames++;
-    if (cur_time - _cpl_last_time >= 1.0) {
-        _cpl_fps = _cpl_nb_frames;
-        _cpl_nb_frames = 0;
-        _cpl_last_time += 1.0f;
+void calc_fps() {
+    f32 cur_time = get_time();
+    _nb_frames++;
+    if (cur_time - _last_time >= 1.0) {
+        _fps = _nb_frames;
+        _nb_frames = 0;
+        _last_time += 1.0f;
     }
 }
-u32 cpl_get_fps() { return _cpl_fps; }
+u32 get_fps() { return _fps; }
 
-void cpl_calc_dt() {
-    f32 cur_frame = cpl_get_time();
-    _cpl_dt = (cur_frame - _cpl_last_frame) * _cpl_time_scale;
-    _cpl_last_frame = cur_frame;
+void calc_dt() {
+    f32 cur_frame = get_time();
+    _dt = (cur_frame - _last_frame) * _time_scale;
+    _last_frame = cur_frame;
 }
 
-f32 cpl_get_dt() { return _cpl_dt; }
-f32 cpl_get_time() {
+f32 get_dt() { return _dt; }
+f32 get_time() {
     static struct timespec start_ts;
     static b8 initialized = false;
     struct timespec cur_ts;
@@ -1634,9 +1634,9 @@ f32 cpl_get_time() {
     return (f32)((f64)(cur_ts.tv_sec - start_ts.tv_sec) +
                  ((f64)(cur_ts.tv_nsec - start_ts.tv_nsec) * 1e-9));
 }
-f32 cpl_get_time_scale() { return _cpl_time_scale; }
+f32 get_time_scale() { return _time_scale; }
 
-void cpl_set_time_scale(f32 scale) { _cpl_time_scale = scale; }
+void set_time_scale(f32 scale) { _time_scale = scale; }
 #endif
 
 // }}}
@@ -1649,70 +1649,68 @@ typedef struct {
     f32 rot;
 } cam_2D;
 
-GLFWwindow *_cpl_window = NULLPTR;
-cam_2D _cpl_cam_2D;
+GLFWwindow *_window = NULLPTR;
+cam_2D _cam_2D;
 
-b8 _cpl_key_states[KEY_LAST - KEY_SPACE + 1];
-b8 _cpl_prev_key_states[KEY_LAST - KEY_SPACE + 1];
-b8 _cpl_mouse_button_states[MOUSE_BUTTON_LAST + 1];
-b8 _cpl_prev_mouse_button_states[MOUSE_BUTTON_LAST + 1];
+b8 _key_states[KEY_LAST - KEY_SPACE + 1];
+b8 _prev_key_states[KEY_LAST - KEY_SPACE + 1];
+b8 _mouse_button_states[MOUSE_BUTTON_LAST + 1];
+b8 _prev_mouse_button_states[MOUSE_BUTTON_LAST + 1];
 
-void cpl_update_input();
-b8 cpl_is_key_down(i32 key);
-b8 cpl_is_key_up(i32 key);
-b8 cpl_is_key_pressed(i32 key);
-b8 cpl_is_key_released(i32 key);
-b8 cpl_is_mouse_down(i32 button);
-b8 cpl_is_mouse_pressed(i32 button);
-b8 cpl_is_mouse_released(i32 button);
-mat4f *cpl_cam_2D_get_view_mat(cam_2D *cam);
-cam_2D *cpl_get_cam_2D();
-vec2f cpl_get_mouse_pos();
-vec2f cpl_get_screen_to_world_2D(vec2f sp);
+void update_input();
+b8 is_key_down(i32 key);
+b8 is_key_up(i32 key);
+b8 is_key_pressed(i32 key);
+b8 is_key_released(i32 key);
+b8 is_mouse_down(i32 button);
+b8 is_mouse_pressed(i32 button);
+b8 is_mouse_released(i32 button);
+mat4f *cam_2D_get_view_mat(cam_2D *cam);
+cam_2D *get_cam_2D();
+vec2f get_mouse_pos();
+vec2f get_screen_to_world_2D(vec2f sp);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_update_input() {
+void update_input() {
     for (u32 i = 0; i < KEY_LAST - KEY_SPACE; i++) {
-        _cpl_prev_key_states[i] = _cpl_key_states[i];
+        _prev_key_states[i] = _key_states[i];
     }
     for (u32 key = KEY_SPACE; key <= KEY_LAST; key++) {
-        _cpl_key_states[key - KEY_SPACE] =
-            glfwGetKey(_cpl_window, (i32)key) == GLFW_PRESS;
+        _key_states[key - KEY_SPACE] =
+            glfwGetKey(_window, (i32)key) == GLFW_PRESS;
     }
 
     for (u32 i = 0; i < MOUSE_BUTTON_LAST - MOUSE_BUTTON_1; i++) {
-        _cpl_prev_mouse_button_states[i] = _cpl_mouse_button_states[i];
+        _prev_mouse_button_states[i] = _mouse_button_states[i];
     }
     for (u32 button = MOUSE_BUTTON_1; button <= MOUSE_BUTTON_LAST; button++) {
-        _cpl_mouse_button_states[button - MOUSE_BUTTON_1] =
-            glfwGetMouseButton(_cpl_window, (i32)button) == GLFW_PRESS;
+        _mouse_button_states[button - MOUSE_BUTTON_1] =
+            glfwGetMouseButton(_window, (i32)button) == GLFW_PRESS;
     }
 }
 
-b8 cpl_is_key_down(i32 key) { return _cpl_key_states[key - KEY_SPACE]; }
-b8 cpl_is_key_up(i32 key) { return !_cpl_key_states[key - KEY_SPACE]; }
-b8 cpl_is_key_pressed(i32 key) {
-    return _cpl_key_states[key - KEY_SPACE] &&
-           !_cpl_prev_key_states[key - KEY_SPACE];
+b8 is_key_down(i32 key) { return _key_states[key - KEY_SPACE]; }
+b8 is_key_up(i32 key) { return !_key_states[key - KEY_SPACE]; }
+b8 is_key_pressed(i32 key) {
+    return _key_states[key - KEY_SPACE] && !_prev_key_states[key - KEY_SPACE];
 }
-b8 cpl_is_key_released(i32 key) {
-    return !_cpl_key_states[key - KEY_SPACE] &&
-           _cpl_prev_key_states[key - KEY_SPACE];
+b8 is_key_released(i32 key) {
+    return !_key_states[key - KEY_SPACE] && _prev_key_states[key - KEY_SPACE];
 }
 
-b8 cpl_is_mouse_down(i32 button) {
-    return _cpl_mouse_button_states[button - MOUSE_BUTTON_1];
+b8 is_mouse_down(i32 button) {
+    return _mouse_button_states[button - MOUSE_BUTTON_1];
 }
-b8 cpl_is_mouse_pressed(i32 button) {
-    return _cpl_mouse_button_states[button - MOUSE_BUTTON_1] &&
-           !_cpl_prev_mouse_button_states[button - MOUSE_BUTTON_1];
+b8 is_mouse_pressed(i32 button) {
+    return _mouse_button_states[button - MOUSE_BUTTON_1] &&
+           !_prev_mouse_button_states[button - MOUSE_BUTTON_1];
 }
-b8 cpl_is_mouse_released(i32 button) {
-    return !_cpl_mouse_button_states[button - MOUSE_BUTTON_1] &&
-           _cpl_prev_mouse_button_states[button - MOUSE_BUTTON_1];
+b8 is_mouse_released(i32 button) {
+    return !_mouse_button_states[button - MOUSE_BUTTON_1] &&
+           _prev_mouse_button_states[button - MOUSE_BUTTON_1];
 }
 
-mat4f *cpl_cam_2D_get_view_mat(cam_2D *cam) {
+mat4f *cam_2D_get_view_mat(cam_2D *cam) {
     mat4f *view = malloc(sizeof(mat4f));
     mat4f_identity(view);
 
@@ -1729,21 +1727,21 @@ mat4f *cpl_cam_2D_get_view_mat(cam_2D *cam) {
     return view;
 }
 
-cam_2D *cpl_get_cam_2D() { return &_cpl_cam_2D; }
+cam_2D *get_cam_2D() { return &_cam_2D; }
 
-vec2f cpl_get_mouse_pos() {
+vec2f get_mouse_pos() {
     f64 x = 0;
     f64 y = 0;
-    glfwGetCursorPos(_cpl_window, &x, &y);
+    glfwGetCursorPos(_window, &x, &y);
     return VEC2F((f32)x, (f32)y);
 }
-vec2f cpl_get_screen_to_world_2D(vec2f sp) {
+vec2f get_screen_to_world_2D(vec2f sp) {
     f32 x = sp.x;
     f32 y = sp.y;
-    x /= _cpl_cam_2D.zoom;
-    y /= _cpl_cam_2D.zoom;
-    x += _cpl_cam_2D.pos.x;
-    y += _cpl_cam_2D.pos.y;
+    x /= _cam_2D.zoom;
+    y /= _cam_2D.zoom;
+    x += _cam_2D.pos.x;
+    y += _cam_2D.pos.y;
     return (vec2f){x, y};
 }
 #endif
@@ -1759,87 +1757,85 @@ typedef enum {
     TEXTURE_2D_UNLIT,
     TEXTURE_2D_LIT,
     _DRAW_MODES_COUNT
-} cpl_draw_mode;
+} draw_mode;
 
-GLubyte *_cpl_renderer;
-GLubyte *_cpl_vendor;
-GLubyte *_cpl_version;
+GLubyte *_renderer;
+GLubyte *_vendor;
+GLubyte *_version;
 
-u32 _cpl_screen_width = 0;
-u32 _cpl_screen_height = 0;
-mat4f _cpl_projection_2D;
-cpl_draw_mode _cpl_cur_draw_mode = SHAPE_2D_UNLIT;
-shader _cpl_shaders[_DRAW_MODES_COUNT];
+u32 _screen_width = 0;
+u32 _screen_height = 0;
+mat4f _projection_2D;
+draw_mode _cur_draw_mode = SHAPE_2D_UNLIT;
+shader _shaders[_DRAW_MODES_COUNT];
+shader _hdr_shader;
 
-void _cpl_framebuffer_size_callback([[maybe_unused]] GLFWwindow *window,
-                                    i32 width, i32 height);
-void _cpl_web_window_resize();
-void _cpl_init_shaders();
-void cpl_init_window(u32 width, u32 height, c8 *title, u32 version);
-b8 cpl_window_should_close();
-void cpl_destroy_window();
-void cpl_close_window();
-u32 cpl_get_screen_width();
-u32 cpl_get_screen_height();
-vec2f cpl_get_screen_size();
-void cpl_enable_vsync(b8 enabled);
-void cpl_update();
-void cpl_end_frame();
+void _framebuffer_size_callback([[maybe_unused]] GLFWwindow *window, i32 width,
+                                i32 height);
+void _web_window_resize();
+void _init_shaders();
+void init_window(u32 width, u32 height, c8 *title, u32 version);
+b8 window_should_close();
+void destroy_window();
+void close_window();
+u32 get_screen_width();
+u32 get_screen_height();
+vec2f get_screen_size();
+void enable_vsync(b8 enabled);
+void update();
+void end_frame();
 
 #ifdef CPL_IMPLEMENTATION
-void _cpl_framebuffer_size_callback([[maybe_unused]] GLFWwindow *window,
-                                    i32 width, i32 height) {
+void _framebuffer_size_callback([[maybe_unused]] GLFWwindow *window, i32 width,
+                                i32 height) {
     glViewport(0, 0, width, height);
-    _cpl_screen_width = width;
-    _cpl_screen_height = height;
-    mat4f_ortho(&_cpl_projection_2D, 0.0f, (f32)_cpl_screen_width,
-                (f32)_cpl_screen_height, 0.0f, -1.0f, 1.0f);
+    _screen_width = width;
+    _screen_height = height;
+    mat4f_ortho(&_projection_2D, 0.0f, (f32)_screen_width, (f32)_screen_height,
+                0.0f, -1.0f, 1.0f);
 }
 
-void _cpl_web_window_resize() {
+void _web_window_resize() {
 #ifdef __EMSCRIPTEN__
     i32 w = emscripten_run_script_int("window.innerWidth");
     i32 h = emscripten_run_script_int("window.innerHeight");
-    if ((f32)w != cpl_screen_width || (f32)h != cpl_screen_height) {
-        glfwSetWindowSize(cpl_window, w, h);
+    if ((f32)w != screen_width || (f32)h != screen_height) {
+        glfwSetWindowSize(window, w, h);
     }
 #endif
 }
 
-void _cpl_init_shaders() {
+void _init_shaders() {
 #ifndef __EMSCRIPTEN__
-    cpl_create_shader(&_cpl_shaders[SHAPE_2D_UNLIT],
-                      "shaders/vert/2D/shape.vert",
-                      "shaders/frag/2D/shape_unlit.frag");
-    cpl_create_shader(&_cpl_shaders[SHAPE_2D_LIT], "shaders/vert/2D/shape.vert",
-                      "shaders/frag/2D/shape_lit.frag");
-    cpl_create_shader(&_cpl_shaders[TEXT], "shaders/vert/2D/text.vert",
-                      "shaders/frag/2D/text.frag");
-    cpl_create_shader(&_cpl_shaders[TEXTURE_2D_UNLIT],
-                      "shaders/vert/2D/texture.vert",
-                      "shaders/frag/2D/texture_unlit.frag");
-    cpl_create_shader(&_cpl_shaders[TEXTURE_2D_LIT],
-                      "shaders/vert/2D/texture.vert",
-                      "shaders/frag/2D/texture_lit.frag");
+    create_shader(&_shaders[SHAPE_2D_UNLIT], "shaders/vert/2D/shape.vert",
+                  "shaders/frag/2D/shape_unlit.frag");
+    create_shader(&_shaders[SHAPE_2D_LIT], "shaders/vert/2D/shape.vert",
+                  "shaders/frag/2D/shape_lit.frag");
+    create_shader(&_shaders[TEXT], "shaders/vert/2D/text.vert",
+                  "shaders/frag/2D/text.frag");
+    create_shader(&_shaders[TEXTURE_2D_UNLIT], "shaders/vert/2D/texture.vert",
+                  "shaders/frag/2D/texture_unlit.frag");
+    create_shader(&_shaders[TEXTURE_2D_LIT], "shaders/vert/2D/texture.vert",
+                  "shaders/frag/2D/texture_lit.frag");
+
+    create_shader(&_hdr_shader, "shaders/vert/2D/hdr.vert",
+                  "shaders/frag/2D/hdr.frag");
 #else
-    cpl_create_shader(&_cpl_shaders[SHAPE_2D_UNLIT],
-                      "/shaders/vert/2D/shape_w.vert",
-                      "/shaders/frag/2D/shape_unlit_w.frag");
-    cpl_create_shader(&_cpl_shaders[SHAPE_2D_LIT],
-                      "/shaders/vert/2D/shape_w.vert",
-                      "/shaders/frag/2D/shape_lit_w.frag");
-    cpl_create_shader(&_cpl_shaders[TEXT], "/shaders/vert/2D/text_w.vert",
-                      "/shaders/frag/2D/text_w.frag");
-    cpl_create_shader(&_cpl_shaders[TEXTURE_2D_UNLIT],
-                      "/shaders/vert/2D/texture_w.vert",
-                      "/shaders/frag/2D/texture_unlit_w.frag");
-    cpl_create_shader(&_cpl_shaders[TEXTURE_2D_LIT],
-                      "/shaders/vert/2D/texture_w.vert",
-                      "/shaders/frag/2D/texture_lit_w.frag");
+    create_shader(&_shaders[SHAPE_2D_UNLIT], "/shaders/vert/2D/shape_w.vert",
+                  "/shaders/frag/2D/shape_unlit_w.frag");
+    create_shader(&_shaders[SHAPE_2D_LIT], "/shaders/vert/2D/shape_w.vert",
+                  "/shaders/frag/2D/shape_lit_w.frag");
+    create_shader(&_shaders[TEXT], "/shaders/vert/2D/text_w.vert",
+                  "/shaders/frag/2D/text_w.frag");
+    create_shader(&_shaders[TEXTURE_2D_UNLIT],
+                  "/shaders/vert/2D/texture_w.vert",
+                  "/shaders/frag/2D/texture_unlit_w.frag");
+    create_shader(&_shaders[TEXTURE_2D_LIT], "/shaders/vert/2D/texture_w.vert",
+                  "/shaders/frag/2D/texture_lit_w.frag");
 #endif
 }
 
-void cpl_init_window(u32 width, u32 height, c8 *title, u32 version) {
+void init_window(u32 width, u32 height, c8 *title, u32 version) {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (i32)version / 10);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (i32)version % 10);
@@ -1861,64 +1857,62 @@ void cpl_init_window(u32 width, u32 height, c8 *title, u32 version) {
         height = emscripten_run_script_int("window.innerHeight");
 #endif
 
-    _cpl_screen_width = width;
-    _cpl_screen_height = height;
+    _screen_width = width;
+    _screen_height = height;
 
-    _cpl_window =
+    _window =
         glfwCreateWindow((i32)width, (i32)height, title, NULLPTR, NULLPTR);
-    if (!_cpl_window) {
+    if (!_window) {
         cpl_log(LOG_ERR, "[CPL] [ERROR] Failed to create window");
         glfwTerminate();
         exit(-1);
     }
 
-    glfwMakeContextCurrent(_cpl_window);
-    glfwSetFramebufferSizeCallback(_cpl_window, _cpl_framebuffer_size_callback);
+    glfwMakeContextCurrent(_window);
+    glfwSetFramebufferSizeCallback(_window, _framebuffer_size_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)(glfwGetProcAddress))) {
         cpl_log(LOG_ERR, "[CPL] [ERROR] Failed to initialize GLAD");
         exit(-1);
     }
 
-    cpl_enable_opengl_debug();
+    enable_opengl_debug();
 
-    _cpl_cam_2D = (cam_2D){{0.0f, 0.0f}, 1.0f, 0.0f};
-    mat4f_ortho(&_cpl_projection_2D, 0.0f, (f32)_cpl_screen_width,
-                (f32)_cpl_screen_height, 0.0f, -1.0f, 1.0f);
+    _cam_2D = (cam_2D){{0.0f, 0.0f}, 1.0f, 0.0f};
+    mat4f_ortho(&_projection_2D, 0.0f, (f32)_screen_width, (f32)_screen_height,
+                0.0f, -1.0f, 1.0f);
 
-    _cpl_init_shaders();
+    _init_shaders();
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    _cpl_renderer = (GLubyte *)glGetString(GL_RENDERER);
-    _cpl_vendor = (GLubyte *)glGetString(GL_VENDOR);
-    _cpl_version = (GLubyte *)glGetString(GL_VERSION);
+    _renderer = (GLubyte *)glGetString(GL_RENDERER);
+    _vendor = (GLubyte *)glGetString(GL_VENDOR);
+    _version = (GLubyte *)glGetString(GL_VERSION);
 }
 
-b8 cpl_window_should_close() { return glfwWindowShouldClose(_cpl_window); }
+b8 window_should_close() { return glfwWindowShouldClose(_window); }
 
-void cpl_destroy_window() { glfwSetWindowShouldClose(_cpl_window, 1); }
+void destroy_window() { glfwSetWindowShouldClose(_window, 1); }
 
-void cpl_close_window() { glfwTerminate(); }
+void close_window() { glfwTerminate(); }
 
-u32 cpl_get_screen_width() { return _cpl_screen_width; }
-u32 cpl_get_screen_height() { return _cpl_screen_height; }
-vec2f cpl_get_screen_size() {
-    return VEC2F(_cpl_screen_width, _cpl_screen_height);
+u32 get_screen_width() { return _screen_width; }
+u32 get_screen_height() { return _screen_height; }
+vec2f get_screen_size() { return VEC2F(_screen_width, _screen_height); }
+
+void enable_vsync(b8 enabled) { glfwSwapInterval(enabled); }
+
+void update() {
+    calc_fps();
+    calc_dt();
+    update_input();
 }
 
-void cpl_enable_vsync(b8 enabled) { glfwSwapInterval(enabled); }
-
-void cpl_update() {
-    cpl_calc_fps();
-    cpl_calc_dt();
-    cpl_update_input();
-}
-
-void cpl_end_frame() {
-    glfwSwapBuffers(_cpl_window);
+void end_frame() {
+    glfwSwapBuffers(_window);
     glfwPollEvents();
 }
 #endif
@@ -1927,97 +1921,93 @@ void cpl_end_frame() {
 
 // {{{ Drawing
 
-void cpl_clear_background(vec4f color);
-void cpl_begin_draw(cpl_draw_mode draw_mode, b8 mode_2D);
-void cpl_draw_rect(vec2f pos, vec2f size, vec4f color, f32 rot);
-void cpl_draw_triangle(vec2f pos, vec2f size, vec4f color, f32 rot);
-void cpl_draw_circle(vec2f pos, f32 radius, vec4f color);
-void cpl_draw_line(vec2f start, vec2f end, f32 thickness, vec4f color);
-void cpl_draw_text(font *font, c8 *text, vec2f pos, f32 scale, vec4f color);
-void cpl_draw_text_shadow(font *font, c8 *text, vec2f pos, f32 scale,
-                          vec4f color, vec2f shadow_off, vec4f shadow_color);
-void cpl_draw_texture2D(texture *tex, vec2f pos, vec2f size, vec4f color,
-                        f32 rot);
-void _cpl_reset_shader();
-void cpl_display_details(font *font);
+void clear_background(vec4f color);
+void begin_draw(draw_mode draw_mode, b8 mode_2D);
+void draw_rect(vec2f pos, vec2f size, vec4f color, f32 rot);
+void draw_triangle(vec2f pos, vec2f size, vec4f color, f32 rot);
+void draw_circle(vec2f pos, f32 radius, vec4f color);
+void draw_line(vec2f start, vec2f end, f32 thickness, vec4f color);
+void draw_text(font *font, c8 *text, vec2f pos, f32 scale, vec4f color);
+void draw_text_shadow(font *font, c8 *text, vec2f pos, f32 scale, vec4f color,
+                      vec2f shadow_off, vec4f shadow_color);
+void draw_texture2D(texture *tex, vec2f pos, vec2f size, vec4f color, f32 rot);
+void _reset_shader();
+void display_details(font *font);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_clear_background(vec4f color) {
+void clear_background(vec4f color) {
     glClearColor(color.r / 255.0f, color.g / 255.0f, color.b / 255.0f,
                  color.a / 255.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
-void cpl_begin_draw(cpl_draw_mode draw_mode, b8 mode_2D) {
-    _cpl_cur_draw_mode = draw_mode;
-    cpl_use_shader(&_cpl_shaders[draw_mode]);
+void begin_draw(draw_mode draw_mode, b8 mode_2D) {
+    _cur_draw_mode = draw_mode;
+    use_shader(&_shaders[draw_mode]);
 
     mat4f view_projection_2D;
     if (mode_2D) {
-        mat4f *view = cpl_cam_2D_get_view_mat(&_cpl_cam_2D);
-        mat4f_mul(&_cpl_projection_2D, view, &view_projection_2D);
+        mat4f *view = cam_2D_get_view_mat(&_cam_2D);
+        mat4f_mul(&_projection_2D, view, &view_projection_2D);
         free(view);
     }
-    cpl_shader_set_mat4f(&_cpl_shaders[draw_mode], "projection",
-                         mode_2D ? view_projection_2D : _cpl_projection_2D);
+    shader_set_mat4f(&_shaders[draw_mode], "projection",
+                     mode_2D ? view_projection_2D : _projection_2D);
 }
 
-void cpl_draw_rect(vec2f pos, vec2f size, vec4f color, f32 rot) {
+void draw_rect(vec2f pos, vec2f size, vec4f color, f32 rot) {
     rect r;
-    cpl_create_rect(&r, pos, size, color, rot);
-    cpl_draw_rect_raw(&_cpl_shaders[_cpl_cur_draw_mode], &r);
-    cpl_destroy_rect(&r);
+    create_rect(&r, pos, size, color, rot);
+    draw_rect_raw(&_shaders[_cur_draw_mode], &r);
+    destroy_rect(&r);
 }
 
-void cpl_draw_triangle(vec2f pos, vec2f size, vec4f color, f32 rot) {
+void draw_triangle(vec2f pos, vec2f size, vec4f color, f32 rot) {
     triangle t;
-    cpl_create_triangle(&t, pos, size, color, rot);
-    cpl_draw_triangle_raw(&_cpl_shaders[_cpl_cur_draw_mode], &t);
-    cpl_destroy_triangle(&t);
+    create_triangle(&t, pos, size, color, rot);
+    draw_triangle_raw(&_shaders[_cur_draw_mode], &t);
+    destroy_triangle(&t);
 }
 
-void cpl_draw_circle(vec2f pos, f32 radius, vec4f color) {
+void draw_circle(vec2f pos, f32 radius, vec4f color) {
     circle c;
-    cpl_create_circle(&c, pos, radius, color);
-    cpl_draw_circle_raw(&_cpl_shaders[_cpl_cur_draw_mode], &c);
-    cpl_destroy_circle(&c);
+    create_circle(&c, pos, radius, color);
+    draw_circle_raw(&_shaders[_cur_draw_mode], &c);
+    destroy_circle(&c);
 }
 
-void cpl_draw_line(vec2f start, vec2f end, f32 thickness, vec4f color) {
+void draw_line(vec2f start, vec2f end, f32 thickness, vec4f color) {
     line l;
-    cpl_create_line(&l, start, end, color);
+    create_line(&l, start, end, color);
     glLineWidth(thickness);
-    cpl_draw_line_raw(&_cpl_shaders[_cpl_cur_draw_mode], &l);
+    draw_line_raw(&_shaders[_cur_draw_mode], &l);
     glLineWidth(1.0f);
-    cpl_destroy_line(&l);
+    destroy_line(&l);
 }
 
-void cpl_draw_text(font *font, c8 *text, vec2f pos, f32 scale, vec4f color) {
-    cpl_draw_text_raw(&_cpl_shaders[_cpl_cur_draw_mode], font, text, pos, scale,
-                      color);
+void draw_text(font *font, c8 *text, vec2f pos, f32 scale, vec4f color) {
+    draw_text_raw(&_shaders[_cur_draw_mode], font, text, pos, scale, color);
 }
 
-void cpl_draw_text_shadow(font *font, c8 *text, vec2f pos, f32 scale,
-                          vec4f color, vec2f shadow_off, vec4f shadow_color) {
-    cpl_draw_text_raw(&_cpl_shaders[_cpl_cur_draw_mode], font, text,
-                      VEC2F(pos.x + shadow_off.x, pos.y + shadow_off.y), scale,
-                      shadow_color);
-    cpl_draw_text_raw(&_cpl_shaders[_cpl_cur_draw_mode], font, text, pos, scale,
-                      color);
+void draw_text_shadow(font *font, c8 *text, vec2f pos, f32 scale, vec4f color,
+                      vec2f shadow_off, vec4f shadow_color) {
+    draw_text_raw(&_shaders[_cur_draw_mode], font, text,
+                  VEC2F(pos.x + shadow_off.x, pos.y + shadow_off.y), scale,
+                  shadow_color);
+    draw_text_raw(&_shaders[_cur_draw_mode], font, text, pos, scale, color);
 }
 
-void cpl_draw_texture2D(texture *tex, vec2f pos, vec2f size, vec4f color,
-                        f32 rot) {
+void draw_texture2D(texture *tex, vec2f pos, vec2f size, vec4f color, f32 rot) {
     texture2D t;
-    cpl_create_texture2D(&t, pos, size, rot, color, tex);
-    cpl_draw_texture2D_raw(&_cpl_shaders[_cpl_cur_draw_mode], &t);
-    cpl_destroy_texture2D(&t);
+    create_texture2D(&t, pos, size, rot, color, tex);
+    draw_texture2D_raw(&_shaders[_cur_draw_mode], &t);
+    destroy_texture2D(&t);
 }
 
-void cpl_reset_shader() { cpl_use_shader(&_cpl_shaders[_cpl_cur_draw_mode]); }
+void reset_shader() { use_shader(&_shaders[_cur_draw_mode]); }
 
-void cpl_display_details(font *font) {
-    cpl_begin_draw(TEXT, false);
+void display_details(font *font) {
+    begin_draw(TEXT, false);
 
     c8 version_str[50];
     c8 renderer_str[50];
@@ -2028,28 +2018,25 @@ void cpl_display_details(font *font) {
     c8 heap_used[50];
     c8 heap_free[50];
 
-    snprintf(version_str, 50, "OpenGL version: %s", _cpl_version);
-    snprintf(renderer_str, 50, "Renderer: %s", _cpl_renderer);
-    snprintf(vendor_str, 50, "Vendor: %s", _cpl_vendor);
-    snprintf(fps, 15, "FPS: %d", cpl_get_fps());
+    snprintf(version_str, 50, "OpenGL version: %s", _version);
+    snprintf(renderer_str, 50, "Renderer: %s", _renderer);
+    snprintf(vendor_str, 50, "Vendor: %s", _vendor);
+    snprintf(fps, 15, "FPS: %d", get_fps());
     snprintf(stack_used, 50, "Stack used: %.3f / %.3f MB (%f%%)",
-             MB((f32)cpl_get_stack_used()), MB((f32)cpl_get_stack_size()),
-             (f32)cpl_get_stack_used() / (f32)cpl_get_stack_size());
-    snprintf(heap_total, 50, "Heap size: %d MB",
-             (i32)MB((f32)cpl_get_heap_size()));
-    snprintf(heap_used, 50, "Heap used: %d MB",
-             (i32)MB((f32)cpl_get_heap_used()));
-    snprintf(heap_free, 50, "Heap free: %d MB",
-             (i32)MB((f32)cpl_get_heap_free()));
+             MB((f32)get_stack_used()), MB((f32)get_stack_size()),
+             (f32)get_stack_used() / (f32)get_stack_size());
+    snprintf(heap_total, 50, "Heap size: %d MB", (i32)MB((f32)get_heap_size()));
+    snprintf(heap_used, 50, "Heap used: %d MB", (i32)MB((f32)get_heap_used()));
+    snprintf(heap_free, 50, "Heap free: %d MB", (i32)MB((f32)get_heap_free()));
 
-    cpl_draw_text(font, version_str, VEC2F(10.0f, 10.0f), 0.5f, WHITE);
-    cpl_draw_text(font, renderer_str, VEC2F(10.0f, 40.0f), 0.5f, WHITE);
-    cpl_draw_text(font, vendor_str, VEC2F(10.0f, 70.0f), 0.5f, WHITE);
-    cpl_draw_text(font, fps, VEC2F(10.0f, 100.0f), 0.5f, WHITE);
-    cpl_draw_text(font, stack_used, VEC2F(10.0f, 130.0f), 0.5f, WHITE);
-    cpl_draw_text(font, heap_total, VEC2F(10.0f, 160.0f), 0.5f, WHITE);
-    cpl_draw_text(font, heap_used, VEC2F(10.0f, 190.0f), 0.5f, WHITE);
-    cpl_draw_text(font, heap_free, VEC2F(10.0f, 220.0f), 0.5f, WHITE);
+    draw_text(font, version_str, VEC2F(10.0f, 10.0f), 0.5f, WHITE);
+    draw_text(font, renderer_str, VEC2F(10.0f, 40.0f), 0.5f, WHITE);
+    draw_text(font, vendor_str, VEC2F(10.0f, 70.0f), 0.5f, WHITE);
+    draw_text(font, fps, VEC2F(10.0f, 100.0f), 0.5f, WHITE);
+    draw_text(font, stack_used, VEC2F(10.0f, 130.0f), 0.5f, WHITE);
+    draw_text(font, heap_total, VEC2F(10.0f, 160.0f), 0.5f, WHITE);
+    draw_text(font, heap_used, VEC2F(10.0f, 190.0f), 0.5f, WHITE);
+    draw_text(font, heap_free, VEC2F(10.0f, 220.0f), 0.5f, WHITE);
 }
 #endif
 
@@ -2068,41 +2055,41 @@ typedef struct {
     vec4f color;
 } global_light_2D;
 
-void cpl_set_ambient_light_2D(f32 strength);
-void cpl_set_global_light_2D(global_light_2D *l);
-void cpl_add_point_lights_2D(point_light_2D *ls, u32 size);
+void set_ambient_light_2D(f32 strength);
+void set_global_light_2D(global_light_2D *l);
+void add_point_lights_2D(point_light_2D *ls, u32 size);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_set_ambient_light_2D(f32 strength) {
-    shader *ss = &_cpl_shaders[SHAPE_2D_LIT];
-    cpl_use_shader(ss);
-    cpl_shader_set_f32(ss, "ambient", strength);
+void set_ambient_light_2D(f32 strength) {
+    shader *ss = &_shaders[SHAPE_2D_LIT];
+    use_shader(ss);
+    shader_set_f32(ss, "ambient", strength);
 
-    shader *ts = &_cpl_shaders[TEXTURE_2D_LIT];
-    cpl_use_shader(ts);
-    cpl_shader_set_f32(ts, "ambient", strength);
+    shader *ts = &_shaders[TEXTURE_2D_LIT];
+    use_shader(ts);
+    shader_set_f32(ts, "ambient", strength);
 
-    cpl_reset_shader();
+    reset_shader();
 }
-void cpl_set_global_light_2D(global_light_2D *l) {
-    shader *ss = &_cpl_shaders[SHAPE_2D_LIT];
-    cpl_use_shader(ss);
-    cpl_shader_set_f32(ss, "g_light.intensity", l->intensity);
-    cpl_shader_set_rgba(ss, "g_light.color", l->color);
+void set_global_light_2D(global_light_2D *l) {
+    shader *ss = &_shaders[SHAPE_2D_LIT];
+    use_shader(ss);
+    shader_set_f32(ss, "g_light.intensity", l->intensity);
+    shader_set_rgba(ss, "g_light.color", l->color);
 
-    shader *ts = &_cpl_shaders[TEXTURE_2D_LIT];
-    cpl_use_shader(ts);
-    cpl_shader_set_f32(ts, "g_light.intensity", l->intensity);
-    cpl_shader_set_rgba(ts, "g_light.color", l->color);
+    shader *ts = &_shaders[TEXTURE_2D_LIT];
+    use_shader(ts);
+    shader_set_f32(ts, "g_light.intensity", l->intensity);
+    shader_set_rgba(ts, "g_light.color", l->color);
 
-    cpl_reset_shader();
+    reset_shader();
 }
 
-void cpl_add_point_lights_2D(point_light_2D *ls, u32 size) {
-    shader *ss = &_cpl_shaders[SHAPE_2D_LIT];
-    cpl_use_shader(ss);
+void add_point_lights_2D(point_light_2D *ls, u32 size) {
+    shader *ss = &_shaders[SHAPE_2D_LIT];
+    use_shader(ss);
 
-    cpl_shader_set_i32(ss, "point_lights_cnt", (i32)size);
+    shader_set_i32(ss, "point_lights_cnt", (i32)size);
     for (u32 i = 0; i < size; i++) {
         c8 pos[50];
         snprintf(pos, 50, "point_lights[%d].pos", i);
@@ -2113,16 +2100,16 @@ void cpl_add_point_lights_2D(point_light_2D *ls, u32 size) {
         c8 color[50];
         snprintf(color, 50, "point_lights[%d].color", i);
 
-        cpl_shader_set_vec2f(ss, pos, ls[i].pos);
-        cpl_shader_set_f32(ss, radius, ls[i].radius);
-        cpl_shader_set_f32(ss, intensity, ls[i].intensity);
-        cpl_shader_set_rgba(ss, color, ls[i].color);
+        shader_set_vec2f(ss, pos, ls[i].pos);
+        shader_set_f32(ss, radius, ls[i].radius);
+        shader_set_f32(ss, intensity, ls[i].intensity);
+        shader_set_rgba(ss, color, ls[i].color);
     }
 
-    shader *ts = &_cpl_shaders[TEXTURE_2D_LIT];
-    cpl_use_shader(ts);
+    shader *ts = &_shaders[TEXTURE_2D_LIT];
+    use_shader(ts);
 
-    cpl_shader_set_i32(ts, "point_lights_cnt", (i32)size);
+    shader_set_i32(ts, "point_lights_cnt", (i32)size);
     for (u32 i = 0; i < size; i++) {
         c8 pos[50];
         snprintf(pos, 50, "point_lights[%d].pos", i);
@@ -2133,13 +2120,13 @@ void cpl_add_point_lights_2D(point_light_2D *ls, u32 size) {
         c8 color[50];
         snprintf(color, 50, "point_lights[%d].color", i);
 
-        cpl_shader_set_vec2f(ts, pos, ls[i].pos);
-        cpl_shader_set_f32(ts, radius, ls[i].radius);
-        cpl_shader_set_f32(ts, intensity, ls[i].intensity);
-        cpl_shader_set_rgba(ts, color, ls[i].color);
+        shader_set_vec2f(ts, pos, ls[i].pos);
+        shader_set_f32(ts, radius, ls[i].radius);
+        shader_set_f32(ts, intensity, ls[i].intensity);
+        shader_set_rgba(ts, color, ls[i].color);
     }
 
-    cpl_reset_shader();
+    reset_shader();
 }
 #endif
 
@@ -2154,10 +2141,11 @@ void cpl_add_point_lights_2D(point_light_2D *ls, u32 size) {
 typedef struct {
     f32 x, y, z;
     f32 u, v;
-} cpl_vertex;
+} vertex;
 
 typedef struct {
-    cpl_vertex *vertices;
+    vertex *vertices;
+    b8 *collidable;
     u32 count;
     u32 capacity;
     u32 vbo;
@@ -2170,30 +2158,34 @@ typedef struct {
     u32 vao;
 } tilemap;
 
-void cpl_create_tilemap(tilemap *m, vec2f tile_size);
-void cpl_destroy_tilemap(tilemap *m);
-void cpl_tilemap_load_texture(tilemap *m, c8 *path, texture_filtering filter);
-void cpl_tilemap_set_tile_size(tilemap *m, vec2f size);
-void cpl_tilemap_begin_editing(tilemap *m);
-void cpl_tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv);
-void cpl_tilemap_delete_tile(tilemap *m, vec2f pos);
-b8 cpl_tilemap_tile_exists(tilemap *m, vec2f pos);
-void cpl_tilemap_draw(tilemap *m);
+void create_tilemap(tilemap *m, vec2f tile_size);
+void destroy_tilemap(tilemap *m);
+void tilemap_load_texture(tilemap *m, c8 *path, texture_filtering filter);
+void tilemap_set_tile_size(tilemap *m, vec2f size);
+void tilemap_begin_editing(tilemap *m);
+void tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv);
+void tilemap_delete_tile(tilemap *m, vec2f pos);
+b8 tilemap_tile_exists(tilemap *m, vec2f pos);
+void tilemap_check_collidable_tiles(tilemap *m, vec2f size);
+void tilemap_draw(tilemap *m);
 
 #ifdef CPL_IMPLEMENTATION
 
-void cpl_tilemap_load_texture(tilemap *m, c8 *path, texture_filtering filter) {
-    cpl_load_texture(&m->tex, path, filter);
+void tilemap_load_texture(tilemap *m, c8 *path, texture_filtering filter) {
+    load_texture(&m->tex, path, filter);
 }
 
-void cpl_tilemap_delete_tile(tilemap *m, vec2f pos) {
+void tilemap_delete_tile(tilemap *m, vec2f pos) {
     for (u32 i = 0; i < m->renderer.count; i += 6) {
         if (m->renderer.vertices[i].x == pos.x &&
             m->renderer.vertices[i].y == pos.y) {
             u32 right_count = m->renderer.count - (i + 6);
             if (right_count > 0) {
                 memmove(&m->renderer.vertices[i], &m->renderer.vertices[i + 6],
-                        right_count * sizeof(cpl_vertex));
+                        right_count * sizeof(vertex));
+                memmove(&m->renderer.collidable[i],
+                        &m->renderer.collidable[i + 1],
+                        (right_count % 6) * sizeof(b8));
             }
             m->renderer.count -= 6;
             break;
@@ -2201,8 +2193,8 @@ void cpl_tilemap_delete_tile(tilemap *m, vec2f pos) {
     }
 }
 
-b8 cpl_tilemap_tile_exists(tilemap *m, vec2f pos) {
-    for (u32 i = 0; i < m->renderer.count; i++) {
+b8 tilemap_tile_exists(tilemap *m, vec2f pos) {
+    for (u32 i = 0; i < m->renderer.count; i += 6) {
         if (m->renderer.vertices->x == pos.x &&
             m->renderer.vertices->y == pos.y) {
             return true;
@@ -2211,11 +2203,18 @@ b8 cpl_tilemap_tile_exists(tilemap *m, vec2f pos) {
     return false;
 }
 
-void cpl_create_tilemap(tilemap *m, vec2f tile_size) {
+void tilemap_check_collidable_tiles(tilemap *m, vec2f size) {
+    for (u32 i = 0; i < m->renderer.count; i += 6) {
+
+    }
+}
+
+void create_tilemap(tilemap *m, vec2f tile_size) {
     m->size = tile_size;
     m->renderer.count = 0;
     m->renderer.capacity = 100 * 6;
-    m->renderer.vertices = malloc(sizeof(cpl_vertex) * m->renderer.capacity);
+    m->renderer.vertices = malloc(sizeof(vertex) * m->renderer.capacity);
+    m->renderer.collidable = malloc(sizeof(b8) * (m->renderer.capacity % 6));
 
     glGenVertexArrays(1, &m->vao);
     glGenBuffers(1, &m->renderer.vbo);
@@ -2223,34 +2222,37 @@ void cpl_create_tilemap(tilemap *m, vec2f tile_size) {
     glBindVertexArray(m->vao);
     glBindBuffer(GL_ARRAY_BUFFER, m->renderer.vbo);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(cpl_vertex),
-                          (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void *)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(cpl_vertex),
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex),
                           (void *)(3 * sizeof(f32)));
     glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
 }
 
-void cpl_destroy_tilemap(tilemap *m) {
+void destroy_tilemap(tilemap *m) {
     free(m->renderer.vertices);
+    free(m->renderer.collidable);
     glDeleteBuffers(1, &m->renderer.vbo);
     glDeleteVertexArrays(1, &m->vao);
 }
 
-void cpl_tilemap_begin_editing(tilemap *m) { m->renderer.count = 0; }
+void tilemap_begin_editing(tilemap *m) { m->renderer.count = 0; }
 
-void cpl_tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv) {
-    if (cpl_tilemap_tile_exists(m, pos)) {
+void tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv) {
+    if (tilemap_tile_exists(m, pos)) {
         return;
     }
     if (m->renderer.count + 6 > m->renderer.capacity) {
         m->renderer.capacity *= 2;
-        cpl_vertex *tmp = realloc(m->renderer.vertices,
-                                  sizeof(cpl_vertex) * m->renderer.capacity);
-        if (tmp) {
-            m->renderer.vertices = tmp;
+        vertex *tmp_vertices = realloc(m->renderer.vertices,
+                                       sizeof(vertex) * m->renderer.capacity);
+        b8 *tmp_collidable = realloc(m->renderer.collidable,
+                                     sizeof(b8) * (m->renderer.capacity % 6));
+        if (tmp_vertices && tmp_collidable) {
+            m->renderer.vertices = tmp_vertices;
+            m->renderer.collidable = tmp_collidable;
         }
     }
 
@@ -2267,7 +2269,7 @@ void cpl_tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv) {
     f32 w = size.x;
     f32 h = size.y;
 
-    cpl_vertex quad[6] = {
+    vertex quad[6] = {
         {x, y, 0, u_start, v_start},     //
         {x + w, y, 0, u_end, v_start},   //
         {x + w, y + h, 0, u_end, v_end}, //
@@ -2281,21 +2283,19 @@ void cpl_tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv) {
     m->renderer.count += 6;
 }
 
-void cpl_tilemap_draw(tilemap *m) {
+void tilemap_draw(tilemap *m) {
     if (m->renderer.count == 0) {
         return;
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, m->renderer.vbo);
-    glBufferData(GL_ARRAY_BUFFER, (u32)(m->renderer.count * sizeof(cpl_vertex)),
+    glBufferData(GL_ARRAY_BUFFER, (u32)(m->renderer.count * sizeof(vertex)),
                  m->renderer.vertices, GL_STREAM_DRAW);
 
     mat4f transform;
     mat4f_identity(&transform);
-    cpl_shader_set_mat4f(&_cpl_shaders[_cpl_cur_draw_mode], "transform",
-                         transform);
-    cpl_shader_set_rgba(&_cpl_shaders[_cpl_cur_draw_mode], "input_color",
-                        WHITE);
+    shader_set_mat4f(&_shaders[_cur_draw_mode], "transform", transform);
+    shader_set_rgba(&_shaders[_cur_draw_mode], "input_color", WHITE);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m->tex.id);
@@ -2339,16 +2339,14 @@ typedef struct {
     vec_particle particles;
 } particle_system;
 
-void cpl_create_particle_system(particle_system *ps, vec2f pos,
-                                u32 max_particles);
-void cpl_destroy_particle_system(particle_system *ps);
-void cpl_update_particle_system(particle_system *ps);
-void cpl_draw_particles(particle_system *ps);
-void cpl_add_particle(particle_system *ps, particle p);
+void create_particle_system(particle_system *ps, vec2f pos, u32 max_particles);
+void destroy_particle_system(particle_system *ps);
+void update_particle_system(particle_system *ps);
+void draw_particles(particle_system *ps);
+void add_particle(particle_system *ps, particle p);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_create_particle_system(particle_system *ps, vec2f pos,
-                                u32 max_particles) {
+void create_particle_system(particle_system *ps, vec2f pos, u32 max_particles) {
     ps->pos = pos;
     ps->max_particles = max_particles;
     vec_particle_reserve(&ps->particles,
@@ -2358,15 +2356,15 @@ void cpl_create_particle_system(particle_system *ps, vec2f pos,
                              : max_particles);
 }
 
-void cpl_destroy_particle_system(particle_system *ps) {
+void destroy_particle_system(particle_system *ps) {
     vec_particle_destroy(&ps->particles);
 }
 
-void cpl_update_particle_system(particle_system *ps) {
+void update_particle_system(particle_system *ps) {
     FOREACH_VEC(particle, vec_particle, p, &ps->particles) {
-        p->cur_life_time += cpl_get_dt();
-        p->pos = vec2f_add(
-            &VEC2F(p->dir.x * cpl_get_dt(), p->dir.y * cpl_get_dt()), &p->pos);
+        p->cur_life_time += get_dt();
+        p->pos = vec2f_add(&VEC2F(p->dir.x * get_dt(), p->dir.y * get_dt()),
+                           &p->pos);
         if (p->cur_life_time >= p->life_time) {
             p->active = false;
         }
@@ -2375,13 +2373,13 @@ void cpl_update_particle_system(particle_system *ps) {
     VEC_ERASE_IF(&ps->particles, !it.active);
 }
 
-void cpl_draw_particles(particle_system *ps) {
+void draw_particles(particle_system *ps) {
     FOREACH_VEC(particle, vec_particle, p, &ps->particles) {
-        cpl_draw_texture2D(p->tex, p->pos, p->size, p->color, p->rot);
+        draw_texture2D(p->tex, p->pos, p->size, p->color, p->rot);
     }
 }
 
-void cpl_add_particle(particle_system *ps, particle p) {
+void add_particle(particle_system *ps, particle p) {
     if (ps->particles.size < ps->max_particles || ps->max_particles == 0) {
         vec_particle_push_back(&ps->particles, p);
     }
@@ -2399,52 +2397,50 @@ typedef struct {
     vec2f size;
 } rect_shadow;
 
-rect_shadow _cpl_rect_shadows[MAX_RECT_SHADOWS];
-u32 _cpl_rect_shadow_count = 0;
+rect_shadow _rect_shadows[MAX_RECT_SHADOWS];
+u32 _rect_shadow_count = 0;
 
-void cpl_begin_shadow_cast_2D();
-void cpl_end_shadow_cast_2D(f32 ambient, f32 shadow_strength,
-                            color shadow_color);
-void cpl_submit_rect_shadow(vec2f pos, vec2f size);
-void cpl_draw_triangle_shadow(vec2f a, vec2f b, vec2f c);
-void cpl_draw_rect_shadow(vec2f pos, vec2f size, point_light_2D *lights, u32 n,
-                          f32 far);
-void cpl_draw_shadows(point_light_2D *lights, u32 light_count, f32 far,
-                      f32 shadow_strength);
+void begin_shadow_cast_2D();
+void end_shadow_cast_2D(f32 ambient, f32 shadow_strength, color shadow_color);
+void submit_rect_shadow(vec2f pos, vec2f size);
+void draw_triangle_shadow(vec2f a, vec2f b, vec2f c);
+void draw_rect_shadow(vec2f pos, vec2f size, point_light_2D *lights, u32 n,
+                      f32 far);
+void draw_shadows(point_light_2D *lights, u32 light_count, f32 far,
+                  f32 shadow_strength);
 
 #ifdef CPL_IMPLEMENTATION
-void cpl_begin_shadow_cast_2D() {
+void begin_shadow_cast_2D() {
     glEnable(GL_STENCIL_TEST);
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glStencilFunc(GL_ALWAYS, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    cpl_begin_draw(SHAPE_2D_UNLIT, true);
+    begin_draw(SHAPE_2D_UNLIT, true);
 }
 
-void cpl_end_shadow_cast_2D(f32 ambient, f32 shadow_strength,
-                            color shadow_color) {
+void end_shadow_cast_2D(f32 ambient, f32 shadow_strength, color shadow_color) {
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glStencilFunc(GL_EQUAL, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
     f32 shadow_alpha = CPM_CLAMP(shadow_strength - ambient, 0, 1);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    cpl_begin_draw(SHAPE_2D_UNLIT, false);
-    cpl_draw_rect(VEC2F_INIT(0), cpl_get_screen_size(),
-                  RGBA(shadow_color.r, shadow_color.g, shadow_color.b,
-                       255 * shadow_alpha),
-                  0);
+    begin_draw(SHAPE_2D_UNLIT, false);
+    draw_rect(VEC2F_INIT(0), get_screen_size(),
+              RGBA(shadow_color.r, shadow_color.g, shadow_color.b,
+                   255 * shadow_alpha),
+              0);
     glDisable(GL_STENCIL_TEST);
 }
 
-void cpl_submit_rect_shadow(vec2f pos, vec2f size) {
-    if (_cpl_rect_shadow_count < MAX_RECT_SHADOWS) {
-        _cpl_rect_shadows[_cpl_rect_shadow_count++] = (rect_shadow){pos, size};
+void submit_rect_shadow(vec2f pos, vec2f size) {
+    if (_rect_shadow_count < MAX_RECT_SHADOWS) {
+        _rect_shadows[_rect_shadow_count++] = (rect_shadow){pos, size};
     }
 }
 
 // TODO make ts somehow work
 
-void cpl_draw_triangle_shadow(vec2f a, vec2f b, vec2f c) {
+void draw_triangle_shadow(vec2f a, vec2f b, vec2f c) {
     f32 vertices[9] = {
         a.x, a.y, 0.0f, b.x, b.y, 0.0f, c.x, c.y, 1.0f,
     };
@@ -2460,9 +2456,9 @@ void cpl_draw_triangle_shadow(vec2f a, vec2f b, vec2f c) {
     glEnableVertexAttribArray(0);
     mat4f transform;
     mat4f_identity(&transform);
-    cpl_shader_set_mat4f(&_cpl_shaders[SHAPE_2D_UNLIT], "transform", transform);
-    cpl_shader_set_rgba(&_cpl_shaders[SHAPE_2D_UNLIT], "input_color",
-                        RGBA(0.0f, 0.0f, 0.0f, 1.0f));
+    shader_set_mat4f(&_shaders[SHAPE_2D_UNLIT], "transform", transform);
+    shader_set_rgba(&_shaders[SHAPE_2D_UNLIT], "input_color",
+                    RGBA(0.0f, 0.0f, 0.0f, 1.0f));
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -2470,8 +2466,8 @@ void cpl_draw_triangle_shadow(vec2f a, vec2f b, vec2f c) {
     glDeleteBuffers(1, &vbo);
 }
 
-void cpl_draw_rect_shadow(vec2f pos, vec2f size, point_light_2D *lights, u32 n,
-                          f32 far) {
+void draw_rect_shadow(vec2f pos, vec2f size, point_light_2D *lights, u32 n,
+                      f32 far) {
     vec2f corners[4] = {
         {pos.x, pos.y},
         {pos.x + size.x, pos.y},
@@ -2505,14 +2501,14 @@ void cpl_draw_rect_shadow(vec2f pos, vec2f size, point_light_2D *lights, u32 n,
             dir_b.y /= len_b;
             vec2f a2 = {a.x + (dir_a.x * far), a.y + (dir_a.y * far)};
             vec2f b2 = {b.x + (dir_b.x * far), b.y + (dir_b.y * far)};
-            cpl_draw_triangle_shadow(a, b, b2);
-            cpl_draw_triangle_shadow(a, b2, a2);
+            draw_triangle_shadow(a, b, b2);
+            draw_triangle_shadow(a, b2, a2);
         }
     }
 }
 
-void cpl_draw_shadows(point_light_2D *lights, u32 light_count, f32 far,
-                      f32 shadow_strength) {
+void draw_shadows(point_light_2D *lights, u32 light_count, f32 far,
+                  f32 shadow_strength) {
     glEnable(GL_STENCIL_TEST);
 
     glClear(GL_STENCIL_BUFFER_BIT);
@@ -2521,9 +2517,9 @@ void cpl_draw_shadows(point_light_2D *lights, u32 light_count, f32 far,
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
     for (u32 l = 0; l < light_count; l++) {
-        for (u32 i = 0; i < _cpl_rect_shadow_count; i++) {
-            cpl_draw_rect_shadow(_cpl_rect_shadows[i].pos,
-                                 _cpl_rect_shadows[i].size, &lights[l], 1, far);
+        for (u32 i = 0; i < _rect_shadow_count; i++) {
+            draw_rect_shadow(_rect_shadows[i].pos, _rect_shadows[i].size,
+                             &lights[l], 1, far);
         }
     }
 
@@ -2531,13 +2527,108 @@ void cpl_draw_shadows(point_light_2D *lights, u32 light_count, f32 far,
     glStencilFunc(GL_EQUAL, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
-    cpl_begin_draw(SHAPE_2D_UNLIT, false);
-    cpl_draw_rect(VEC2F_INIT(0), cpl_get_screen_size(),
-                  RGBA(0, 0, 0, (u8)(255 * shadow_strength)), 0);
+    begin_draw(SHAPE_2D_UNLIT, false);
+    draw_rect(VEC2F_INIT(0), get_screen_size(),
+              RGBA(0, 0, 0, (u8)(255 * shadow_strength)), 0);
 
     glDisable(GL_STENCIL_TEST);
-    _cpl_rect_shadow_count = 0;
+    _rect_shadow_count = 0;
 }
 #endif
 
 // }}}
+
+// {{{ HDR
+
+typedef struct {
+    u32 fbo;
+    u32 rbo_depth;
+    u32 color_buffer;
+    u32 quad_vao;
+    u32 quad_vbo;
+} hdr;
+
+hdr _hdr = (hdr){0, 0, 0, 0, 0};
+
+void init_hdr() {
+    glGenFramebuffers(1, &_hdr.fbo);
+    glGenTextures(1, &_hdr.color_buffer);
+    glBindTexture(GL_TEXTURE_2D, _hdr.color_buffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, (i32)_screen_width,
+                 (i32)_screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenRenderbuffers(1, &_hdr.rbo_depth);
+    glBindRenderbuffer(GL_RENDERBUFFER, _hdr.rbo_depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT,
+                          (i32)_screen_width, (i32)_screen_height);
+    glBindFramebuffer(GL_FRAMEBUFFER, _hdr.fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           _hdr.color_buffer, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                              GL_RENDERBUFFER, _hdr.rbo_depth);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        cpl_log(LOG_ERR, "Framebuffer is not complete!");
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void hdr_quad_resize(hdr *h, i32 width, i32 height) {
+    // q->size = (vec2f){(f32)width, (f32)height};
+
+    glBindTexture(GL_TEXTURE_2D, h->color_buffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
+                 GL_UNSIGNED_BYTE, NULLPTR);
+
+    glBindRenderbuffer(GL_RENDERBUFFER, h->rbo_depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+}
+
+void begin_hdr() {
+    glBindFramebuffer(GL_FRAMEBUFFER, _hdr.fbo);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    hdr_quad_resize(&_hdr, (i32)_screen_width, (i32)_screen_height);
+}
+
+void apply_hdr(b8 gamma_correct, f32 exposure) {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    use_shader(&_hdr_shader);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, _hdr.color_buffer);
+    shader_set_b8(&_hdr_shader, "gamma_correct", gamma_correct);
+    shader_set_f32(&_hdr_shader, "exposure", exposure);
+    if (_hdr.quad_vao == 0) {
+        f32 vertices[] = {
+            -1.0f, 1.0f,  0.0f, 0.0f, 1.0f, //
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, //
+            1.0f,  1.0f,  0.0f, 1.0f, 1.0f, //
+            1.0f,  -1.0f, 0.0f, 1.0f, 0.0f, //
+        };
+        glGenVertexArrays(1, &_hdr.quad_vao);
+        glGenBuffers(1, &_hdr.quad_vbo);
+        glBindVertexArray(_hdr.quad_vao);
+        glBindBuffer(GL_ARRAY_BUFFER, _hdr.quad_vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices,
+                     GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(f32),
+                              (void *)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(f32),
+                              (void *)(3 * sizeof(f32)));
+    }
+    glBindVertexArray(_hdr.quad_vao);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
+
+// }}}
+
+#ifdef __cplusplus
+}
+}
+#endif
