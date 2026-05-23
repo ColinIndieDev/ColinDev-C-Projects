@@ -48,14 +48,14 @@ typedef _Bool b8;
 
 #define MAIN_PROG int
 
-#define EXIT(s) cexit(s)
-void cexit(i32 status) {
-    fflush(stdout);
-    fflush(stderr);
-    asm volatile("movl %0, %%edi\n"
-                 "movl $60, %%eax\n"
-                 "syscall"
-                 :
-                 : "r"(status)
-                 : "%eax", "%edi");
-}
+#define EXIT(s)                                                                \
+    {                                                                          \
+        fflush(stdout);                                                        \
+        fflush(stderr);                                                        \
+        asm volatile("movl %0, %%edi\n"                                        \
+                     "movl $60, %%eax\n"                                       \
+                     "syscall"                                                 \
+                     :                                                         \
+                     : "r"(s)                                                  \
+                     : "%eax", "%edi");                                        \
+    }

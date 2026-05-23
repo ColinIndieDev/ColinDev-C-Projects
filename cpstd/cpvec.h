@@ -1,15 +1,37 @@
 #pragma once
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
-#define VEC_DEF(type, name)                                                    \
+#define VEC_DEF(type, name) VEC_DECL(type, name); VEC_IMPL(type, name);
+
+#define VEC_DECL(type, name)                                                   \
     typedef struct {                                                           \
         type *data;                                                            \
         u32 size;                                                              \
         u32 capacity;                                                          \
     } name;                                                                    \
+    void name##_init(name *v, u32 size, type val);                             \
+    void name##_reserve(name *v, u32 size);                                    \
+    type *name##_at(name *v, u32 i);                                           \
+    type name##_get(name *v, u32 i);                                           \
+    void name##_push_back(name *v, type val);                                  \
+    void name##_push_front(name *v, type val);                                 \
+    void name##_pop_back(name *v);                                             \
+    void name##_pop_front(name *v);                                            \
+    void name##_delete(name *v, u32 i);                                        \
+    void name##_destroy(name *v);                                              \
+    void name##_set(name *v, u32 i, type val);                                 \
+    void name##_copy(name *v, name *dest);                                     \
+    void name##_clear(name *v);                                                \
+    type *name##_begin(name *v);                                               \
+    type *name##_end(name *v);                                                 \
+    type *name##_front(name *v);                                               \
+    type *name##_back(name *v);                                                \
+    b8 name##_empty(name *v);
+
+#define VEC_IMPL(type, name)                                                   \
     void name##_init(name *v, u32 size, type val) {                            \
         assert(v != NULLPTR);                                                  \
         v->capacity = size > 10 ? size * 2 : 10;                               \
@@ -57,7 +79,7 @@
                 v->data = new_data;                                            \
             }                                                                  \
         }                                                                      \
-        memmove(&v->data[1], &v->data[0], v->size * sizeof(type));          \
+        memmove(&v->data[1], &v->data[0], v->size * sizeof(type));             \
         v->data[0] = val;                                                      \
         v->size++;                                                             \
     }                                                                          \
@@ -69,14 +91,14 @@
     void name##_pop_front(name *v) {                                           \
         assert(v != NULLPTR);                                                  \
         assert(v->size > 0);                                                   \
-        memmove(&v->data[0], &v->data[1], (v->size - 1) * sizeof(type));    \
+        memmove(&v->data[0], &v->data[1], (v->size - 1) * sizeof(type));       \
         v->size--;                                                             \
     }                                                                          \
     void name##_delete(name *v, u32 i) {                                       \
         assert(v != NULLPTR);                                                  \
         assert(0 <= i && i < v->size && v->size > 0);                          \
-        memmove(&v->data[i], &v->data[i + 1],                               \
-                   (v->size - i - 1) * sizeof(type));                          \
+        memmove(&v->data[i], &v->data[i + 1],                                  \
+                (v->size - i - 1) * sizeof(type));                             \
         v->size--;                                                             \
     }                                                                          \
     void name##_destroy(name *v) {                                             \

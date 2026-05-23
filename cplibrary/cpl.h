@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #ifdef CPL_IMPLEMENTATION
+#define CPM_IMPL
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define MINIAUDIO_IMPLEMENTATION
@@ -32,10 +33,7 @@
 #include "stb_image_write.h"
 #include <miniaudio.h>
 
-#include "../cpstd/cpbase.h"
-#include "../cpstd/cpbitarr.h"
 #include "../cpstd/cpmath.h"
-#include "../cpstd/cpvec.h"
 
 // {{{ Key Inputs
 
@@ -220,8 +218,6 @@ typedef vec4f color;
 #define BROWN RGB(150, 76, 0)
 
 // }}}
-
-#define CPL_IMPLEMENTATION
 
 #ifdef __cplusplus
 namespace cpl {
@@ -1138,7 +1134,9 @@ typedef struct {
     vec2f bearing;
     u32 advance;
 } letter;
-VEC_DEF(letter, vec_letters)
+
+VEC_DECL(letter, vec_letters);
+
 typedef struct {
     u32 vao, vbo;
     c8 *name;
@@ -1152,6 +1150,9 @@ void draw_text_raw(shader *s, font *f, c8 *text, vec2f pos, f32 scale,
 vec2f get_text_size(font *f, c8 *text, f32 scale);
 
 #ifdef CPL_IMPLEMENTATION
+
+VEC_IMPL(letter, vec_letters);
+
 void create_font(font *f, c8 *path, c8 *name, texture_filtering filter) {
     FT_Library ft;
     if (FT_Init_FreeType(&ft)) {
@@ -1304,12 +1305,6 @@ typedef struct {
     f32 pitch;
 } audio;
 
-ma_engine _audio_engine;
-ma_sound *_music;
-ma_sound **_active_sounds;
-u32 _active_sounds_size;
-u32 _active_sounds_cap;
-
 void audio_init();
 audio load_audio(c8 *path);
 void audio_update();
@@ -1321,6 +1316,13 @@ void audio_stop_music();
 void audio_close();
 
 #ifdef CPL_IMPLEMENTATION
+
+ma_engine _audio_engine;
+ma_sound *_music;
+ma_sound **_active_sounds;
+u32 _active_sounds_size;
+u32 _active_sounds_cap;
+
 void audio_init() {
     if (ma_engine_init(NULLPTR, &_audio_engine) != MA_SUCCESS) {
         cpl_log(LOG_ERR, "Failed to init audio!");
@@ -1588,13 +1590,6 @@ b8 check_collision_vec2f_circle(vec2f a, circle_collider b) {
 
 // {{{ Timing
 
-u32 _nb_frames = 0;
-f32 _last_time = 0.0f;
-f32 _last_frame = 0.0f;
-f32 _dt = 0.0f;
-f32 _time_scale = 1.0f;
-u32 _fps = 0;
-
 void calc_fps();
 u32 get_fps();
 void calc_dt();
@@ -1604,6 +1599,14 @@ f32 get_time_scale();
 void set_time_scale(f32 scale);
 
 #ifdef CPL_IMPLEMENTATION
+
+u32 _nb_frames = 0;
+f32 _last_time = 0.0f;
+f32 _last_frame = 0.0f;
+f32 _dt = 0.0f;
+f32 _time_scale = 1.0f;
+u32 _fps = 0;
+
 void calc_fps() {
     f32 cur_time = get_time();
     _nb_frames++;
@@ -1649,14 +1652,6 @@ typedef struct {
     f32 rot;
 } cam_2D;
 
-GLFWwindow *_window = NULLPTR;
-cam_2D _cam_2D;
-
-b8 _key_states[KEY_LAST - KEY_SPACE + 1];
-b8 _prev_key_states[KEY_LAST - KEY_SPACE + 1];
-b8 _mouse_button_states[MOUSE_BUTTON_LAST + 1];
-b8 _prev_mouse_button_states[MOUSE_BUTTON_LAST + 1];
-
 void update_input();
 b8 is_key_down(i32 key);
 b8 is_key_up(i32 key);
@@ -1671,6 +1666,15 @@ vec2f get_mouse_pos();
 vec2f get_screen_to_world_2D(vec2f sp);
 
 #ifdef CPL_IMPLEMENTATION
+
+GLFWwindow *_window = NULLPTR;
+cam_2D _cam_2D;
+
+b8 _key_states[KEY_LAST - KEY_SPACE + 1];
+b8 _prev_key_states[KEY_LAST - KEY_SPACE + 1];
+b8 _mouse_button_states[MOUSE_BUTTON_LAST + 1];
+b8 _prev_mouse_button_states[MOUSE_BUTTON_LAST + 1];
+
 void update_input() {
     for (u32 i = 0; i < KEY_LAST - KEY_SPACE; i++) {
         _prev_key_states[i] = _key_states[i];
@@ -1759,17 +1763,6 @@ typedef enum {
     _DRAW_MODES_COUNT
 } draw_mode;
 
-GLubyte *_renderer;
-GLubyte *_vendor;
-GLubyte *_version;
-
-u32 _screen_width = 0;
-u32 _screen_height = 0;
-mat4f _projection_2D;
-draw_mode _cur_draw_mode = SHAPE_2D_UNLIT;
-shader _shaders[_DRAW_MODES_COUNT];
-shader _hdr_shader;
-
 void _framebuffer_size_callback([[maybe_unused]] GLFWwindow *window, i32 width,
                                 i32 height);
 void _web_window_resize();
@@ -1786,6 +1779,17 @@ void update();
 void end_frame();
 
 #ifdef CPL_IMPLEMENTATION
+
+GLubyte *_renderer;
+GLubyte *_vendor;
+GLubyte *_version;
+u32 _screen_width = 0;
+u32 _screen_height = 0;
+mat4f _projection_2D;
+draw_mode _cur_draw_mode = SHAPE_2D_UNLIT;
+shader _shaders[_DRAW_MODES_COUNT];
+shader _hdr_shader;
+
 void _framebuffer_size_callback([[maybe_unused]] GLFWwindow *window, i32 width,
                                 i32 height) {
     glViewport(0, 0, width, height);
@@ -2167,6 +2171,8 @@ void tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv);
 void tilemap_delete_tile(tilemap *m, vec2f pos);
 b8 tilemap_tile_exists(tilemap *m, vec2f pos);
 void tilemap_check_collidable_tiles(tilemap *m, vec2f size);
+b8 tilemap_tile_collidable(tilemap *m, vec2f pos);
+vec2f tilemap_get_tile_uv(tilemap *m, vec2f pos);
 void tilemap_draw(tilemap *m);
 
 #ifdef CPL_IMPLEMENTATION
@@ -2183,9 +2189,9 @@ void tilemap_delete_tile(tilemap *m, vec2f pos) {
             if (right_count > 0) {
                 memmove(&m->renderer.vertices[i], &m->renderer.vertices[i + 6],
                         right_count * sizeof(vertex));
-                memmove(&m->renderer.collidable[i],
-                        &m->renderer.collidable[i + 1],
-                        (right_count % 6) * sizeof(b8));
+                memmove(&m->renderer.collidable[i / 6],
+                        &m->renderer.collidable[(i / 6) + 1],
+                        (right_count / 6) * sizeof(b8));
             }
             m->renderer.count -= 6;
             break;
@@ -2205,8 +2211,45 @@ b8 tilemap_tile_exists(tilemap *m, vec2f pos) {
 
 void tilemap_check_collidable_tiles(tilemap *m, vec2f size) {
     for (u32 i = 0; i < m->renderer.count; i += 6) {
+        b8 exposed = false;
 
+        vec2f neighbors[4] = {
+            {m->renderer.vertices[i].x - size.x, m->renderer.vertices[i].y},
+            {m->renderer.vertices[i].x + size.x, m->renderer.vertices[i].y},
+            {m->renderer.vertices[i].x, m->renderer.vertices[i].y - size.y},
+            {m->renderer.vertices[i].x, m->renderer.vertices[i].y + size.y}};
+
+        for (u32 n = 0; n < 4; n++) {
+            if (!tilemap_tile_exists(m, neighbors[n])) {
+                exposed = true;
+                break;
+            }
+        }
+        m->renderer.collidable[i / 6] = exposed;
     }
+}
+
+b8 tilemap_tile_collidable(tilemap *m, vec2f pos) {
+    for (u32 i = 0; i < m->renderer.count; i += 6) {
+        if (m->renderer.vertices[i].x == pos.x &&
+            m->renderer.vertices[i].y == pos.y) {
+            return m->renderer.collidable[i / 6];
+        }
+    }
+    return false;
+}
+
+vec2f tilemap_get_tile_uv(tilemap *m, vec2f pos) {
+    for (u32 i = 0; i < m->renderer.count; i += 6) {
+        if (m->renderer.vertices[i].x == pos.x &&
+            m->renderer.vertices[i].y == pos.y) {
+            f32 tw = m->size.x / m->tex.size.x;
+            f32 th = m->size.y / m->tex.size.y;
+            return VEC2F(m->renderer.vertices[i].u / tw,
+                         ((1.0f - m->renderer.vertices[i].v) / th) - 1.0f);
+        }
+    }
+    return VEC2F(-1, -1);
 }
 
 void create_tilemap(tilemap *m, vec2f tile_size) {
@@ -2214,7 +2257,7 @@ void create_tilemap(tilemap *m, vec2f tile_size) {
     m->renderer.count = 0;
     m->renderer.capacity = 100 * 6;
     m->renderer.vertices = malloc(sizeof(vertex) * m->renderer.capacity);
-    m->renderer.collidable = malloc(sizeof(b8) * (m->renderer.capacity % 6));
+    m->renderer.collidable = malloc(sizeof(b8) * (m->renderer.capacity / 6));
 
     glGenVertexArrays(1, &m->vao);
     glGenBuffers(1, &m->renderer.vbo);
@@ -2249,7 +2292,7 @@ void tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv) {
         vertex *tmp_vertices = realloc(m->renderer.vertices,
                                        sizeof(vertex) * m->renderer.capacity);
         b8 *tmp_collidable = realloc(m->renderer.collidable,
-                                     sizeof(b8) * (m->renderer.capacity % 6));
+                                     sizeof(b8) * (m->renderer.capacity / 6));
         if (tmp_vertices && tmp_collidable) {
             m->renderer.vertices = tmp_vertices;
             m->renderer.collidable = tmp_collidable;
@@ -2330,7 +2373,7 @@ typedef struct {
     b8 active;
 } particle;
 
-VEC_DEF(particle, vec_particle)
+VEC_DECL(particle, vec_particle);
 
 typedef struct {
     vec2f pos;
@@ -2346,6 +2389,9 @@ void draw_particles(particle_system *ps);
 void add_particle(particle_system *ps, particle p);
 
 #ifdef CPL_IMPLEMENTATION
+
+VEC_IMPL(particle, vec_particle);
+
 void create_particle_system(particle_system *ps, vec2f pos, u32 max_particles) {
     ps->pos = pos;
     ps->max_particles = max_particles;
@@ -2397,9 +2443,6 @@ typedef struct {
     vec2f size;
 } rect_shadow;
 
-rect_shadow _rect_shadows[MAX_RECT_SHADOWS];
-u32 _rect_shadow_count = 0;
-
 void begin_shadow_cast_2D();
 void end_shadow_cast_2D(f32 ambient, f32 shadow_strength, color shadow_color);
 void submit_rect_shadow(vec2f pos, vec2f size);
@@ -2410,6 +2453,10 @@ void draw_shadows(point_light_2D *lights, u32 light_count, f32 far,
                   f32 shadow_strength);
 
 #ifdef CPL_IMPLEMENTATION
+
+rect_shadow _rect_shadows[MAX_RECT_SHADOWS];
+u32 _rect_shadow_count = 0;
+
 void begin_shadow_cast_2D() {
     glEnable(GL_STENCIL_TEST);
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
@@ -2548,6 +2595,13 @@ typedef struct {
     u32 quad_vbo;
 } hdr;
 
+void init_hdr();
+void hdr_quad_resize(hdr *h, i32 width, i32 height);
+void begin_hdr();
+void apply_hdr(b8 gamma_correct, f32 exposure);
+
+#ifdef CPL_IMPLEMENTATION
+
 hdr _hdr = (hdr){0, 0, 0, 0, 0};
 
 void init_hdr() {
@@ -2625,6 +2679,7 @@ void apply_hdr(b8 gamma_correct, f32 exposure) {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
 }
+#endif
 
 // }}}
 

@@ -10,10 +10,26 @@
 #define CPM_ABS(x) ((x) > 0 ? (x) : -(x))
 #define CPM_CLAMP(x, n, m) ((x) > (n) ? ((x) < (m) ? (x) : (m)) : (n))
 
-VEC_DEF(f32, vecf)
-
 // {{{ Arithmetic
 
+f32 cpm_factorial(i32 n);
+f32 cpm_expf(f32 x);
+f32 cpm_powf(f32 x, i32 n);
+f32 cpm_sinf(f32 x);
+f32 cpm_cosf(f32 x);
+f32 cpm_tanf(f32 x);
+f32 cpm_sinhf(f32 x);
+f32 cpm_coshf(f32 x);
+f32 cpm_tanhf(f32 x);
+f32 cpm_sqrt(f32 n);
+f32 cpm_logf(f32 x);
+f32 cpm_modf(f32 x, f32 y);
+f32 cpm_floorf(f32 x);
+f32 cpm_ceilf(f32 x);
+f32 cpm_rad(f32 deg);
+b8 cpm_isnan(f32 x);
+
+#ifdef CPM_IMPL
 f32 cpm_factorial(i32 n) {
     if (n == 0 || n == 1) {
         return 1.0f;
@@ -158,83 +174,11 @@ b8 cpm_isnan(f32 x) {
     volatile f32 y = x;
     return (b8)(y != y);
 }
+#endif
 
 // }}}
 
 // {{{ Linear algebra
-
-typedef struct {
-    vecf data;
-    u32 rows, cols;
-} mat2D;
-
-void mat2D_init(mat2D *m, u32 rows, u32 cols, f32 val) {
-    vecf_init(&m->data, (u64)rows * cols, val);
-    m->rows = rows;
-    m->cols = cols;
-}
-
-f32 *mat2D_at(mat2D *m, u32 row, u32 col) {
-    assert(row < m->rows && col < m->cols);
-
-    return &m->data.data[(row * m->cols) + col];
-}
-
-f32 mat2D_get(mat2D *m, u32 row, u32 col) {
-    assert(row < m->rows && col < m->cols);
-
-    return m->data.data[(row * m->cols) + col];
-}
-
-f32 *mat2D_row_ptr(mat2D *m, u32 row) {
-    return &m->data.data[(u64)row * m->cols];
-}
-void mat2D_get_row(mat2D *m, u32 row, f32 *out) {
-    assert(row < m->rows);
-
-    memcpy(out, &m->data.data[(u64)row * m->cols], m->cols * sizeof(f32));
-}
-
-u32 mat2D_size(mat2D *m) { return m->data.size; }
-
-void mat2D_destroy(mat2D *m) {
-    vecf_destroy(&m->data);
-    m->rows = 0;
-    m->cols = 0;
-}
-
-void mat2D_add(mat2D *m1, mat2D *m2, mat2D *out) {
-    assert(m1->rows == m2->rows && m1->cols == m2->cols &&
-           out->rows == m1->rows && out->cols == m1->cols);
-
-    for (u32 i = 0; i < m1->data.size; i++) {
-        out->data.data[i] = m1->data.data[i] + m2->data.data[i];
-    }
-}
-void mat2D_sub(mat2D *m1, mat2D *m2, mat2D *out) {
-    assert(m1->rows == m2->rows && m1->cols == m2->cols &&
-           out->rows == m1->rows && out->cols == m1->cols);
-
-    for (u32 i = 0; i < m1->data.size; i++) {
-        out->data.data[i] = m1->data.data[i] - m2->data.data[i];
-    }
-}
-void mat2D_mul(mat2D *m1, mat2D *m2, mat2D *out) {
-    assert(m1->rows == m2->rows && m1->cols == m2->cols &&
-           out->rows == m1->rows && out->cols == m1->cols);
-
-    for (u32 i = 0; i < m1->data.size; i++) {
-        out->data.data[i] = m1->data.data[i] * m2->data.data[i];
-    }
-}
-void mat2D_div(mat2D *m1, mat2D *m2, mat2D *out) {
-    assert(m1->rows == m2->rows && m1->cols == m2->cols &&
-           out->rows == m1->rows && out->cols == m1->cols);
-
-    for (u32 i = 0; i < m1->data.size; i++) {
-        out->data.data[i] = m1->data.data[i] / m2->data.data[i];
-    }
-}
 
 typedef union {
     f32 data[4];
@@ -277,6 +221,21 @@ typedef union {
 #define VEC2F(x, y)                                                            \
     (vec2f) { x, y }
 
+b8 vec2f_cmp(vec2f a, vec2f b);
+vec2f vec2f_add(vec2f *a, vec2f *b);
+vec2f vec2f_sub(vec2f *a, vec2f *b);
+vec2f vec2f_mul(vec2f *a, vec2f *b);
+vec2f vec2f_div(vec2f *a, vec2f *b);
+vec2f vec2f_f32_mul(vec2f *a, f32 b);
+f32 vec2f_dist(vec2f *v1, vec2f *v2);
+f32 vec2f_dist2(vec2f *v1, vec2f *v2);
+f32 vec2f_dot(vec2f *a, vec2f *b);
+f32 vec2f_length(vec2f *a);
+vec2f vec2f_clamp(vec2f *v, vec2f *n, vec2f *m);
+
+#ifdef CPM_IMPL
+b8 vec2f_cmp(vec2f a, vec2f b) { return a.x == b.x && a.y == b.y; }
+
 vec2f vec2f_add(vec2f *a, vec2f *b) {
     return (vec2f){a->x + b->x, a->y + b->y};
 }
@@ -313,11 +272,25 @@ f32 vec2f_length(vec2f *a) { return cpm_sqrt((a->x * a->x) + (a->y * a->y)); }
 vec2f vec2f_clamp(vec2f *v, vec2f *n, vec2f *m) {
     return (vec2f){CPM_CLAMP(v->x, n->x, m->x), CPM_CLAMP(v->y, n->y, m->y)};
 }
+#endif
 
 typedef struct {
     f32 data[4][4];
 } mat4f;
 
+void mat4f_identity(mat4f *m);
+void mat4f_translate(mat4f *m, vec3f *v);
+void mat4f_rotate(mat4f *m, f32 angle_rad, vec3f *axis);
+void mat4f_scale(mat4f *m, vec3f *v);
+vec4f mat4f_mul_vec4f(mat4f *m, vec4f v);
+void mat4f_mul(mat4f *a, mat4f *b, mat4f *dest);
+void mat4f_ortho(mat4f *m, f32 left, f32 right, f32 bottom, f32 top, f32 near,
+                 f32 far);
+static f32 minor_mat3f_det(f32 data[4][4], u32 r, u32 c);
+f32 mat4f_det(mat4f *m);
+void mat4f_inv(mat4f *m, mat4f *out);
+
+#ifdef CPM_IMPL
 void mat4f_identity(mat4f *m) {
     for (u32 j = 0; j < 4; j++) {
         for (u32 i = 0; i < 4; i++) {
@@ -470,5 +443,6 @@ void mat4f_inv(mat4f *m, mat4f *out) {
         }
     }
 }
+#endif
 
 // }}}

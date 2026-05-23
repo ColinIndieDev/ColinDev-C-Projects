@@ -12,6 +12,20 @@ typedef struct {
 
 static cprng_state rng_state = {0x853c49e6748fea9bULL, 0xda3e39cb94b95bdbULL};
 
+u32 cprng_randr(cprng_state *rng);
+void cprng_rand_seedr(cprng_state *rng);
+void cprng_rand_seed();
+f32 cprng_randfr(cprng_state *rng);
+void cprng_seedr(cprng_state *rng, u64 state, u64 seq);
+void cprng_seed(u64 state, u64 seq);
+u32 cprng_rand();
+u32 cprnr_rand_range(u32 min, u32 max);
+f32 cprng_randf_norm();
+f32 cprng_randf();
+f32 cprng_randf_range(f32 min, f32 max);
+i32 cprng_rand_range(i32 min, i32 max);
+
+#ifdef CPRNG_IMPL
 u32 cprng_randr(cprng_state *rng) {
     u64 oldState = rng->state;
     rng->state = (oldState * 6364136223846793005ULL) + rng->inc;
@@ -67,3 +81,4 @@ f32 cprng_randf_range(f32 min, f32 max) {
 i32 cprng_rand_range(i32 min, i32 max) {
     return min + (i32)(cprng_rand() % (max - min + 1));
 }
+#endif
