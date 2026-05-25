@@ -8,30 +8,30 @@ since september 2025.
 
 ## Example code
 ```c
-#include <cplibrary/cpl.h>
+#include <cpl/cpl.h>
 
 int main() {
-    cpl_init_window(800, 600, "Welcome to CPL", OPENGL_VER_3_3);
+    init_window(800, 600, "Welcome to CPL", OPENGL_VER_3_3);
 
     font default_font;
-    cpl_create_font(&default_font, "fonts/default.ttf", "default", FILTER_NEAREST);
+    create_font(&default_font, "fonts/default.ttf", "default", FILTER_NEAREST);
 
-    while (!cpl_window_should_close()) {
-        cpl_update();
+    while (!window_should_close()) {
+        update();
 
-        cpl_clear_background(BLACK);
+        clear_background(BLACK);
         
-        cpl_begin_draw(SHAPE_2D_UNLIT, false);
+        begin_draw(SHAPE_2D_UNLIT, false);
 
-        cpl_draw_rect(VEC2F(0, 0), VEC2F(100, 100), RED, 0.0f);
+        draw_rect(VEC2F(0, 0), VEC2F(100, 100), RED, 0.0f);
 
-        cpl_begin_draw(TEXT, false);
-        cpl_draw_text(&default_font, "Hello OpenGL!", VEC2F(cpl_get_screen_width() / 2.0f, cpl_get_screen_height() / 2.0f), 1.0f, WHITE);
+        begin_draw(TEXT, false);
+        draw_text(&default_font, "Hello OpenGL!", VEC2F(get_screen_width() / 2.0f,get_screen_height() / 2.0f), 1.0f, WHITE);
 
-        cpl_end_frame();
+        end_frame();
     }
 
-    cpl_close_window();
+    close_window();
 }
 ```
 
@@ -53,12 +53,13 @@ It is not much yet but these are the projects and their link to GitHub:
 
 ### C (99)
 
-In the CP-Headers repo are all projects I made with C in this version of CPL (inside `src/`):
+In the CP-Headers repo are all projects I made with C in this version of CPL (most inside `src/` or separate repos):
 
 - Flappy Bird Clone
 - QR Code Gen
 - Pendulum
 - Sort Visualization
+- Minecraft 2D
 
 In the future, I will make other projects using my library and keep extending it as well!
 
@@ -71,19 +72,21 @@ to Web with Emscripten (C++ version only for now).
 
 2D:
 - Primitives (Lines, Rectangles, Circles etc.)
-- Text + Fonts
+- Text + Font
 - 2D Lighting
-- Textures
-- Tilemaps
-- Particle Systems
+- Texture
+- Tilemap
+- Particle System
+- Gamma Correction
+- HDR
 
 Both:
 - Camera
   
 Others:
-- Key Inputs (Key down)
+- Key Inputs
 - Audio
-- Screenshots
+- Screenshot
 
 ## Used libraries
 - GLAD
@@ -97,6 +100,9 @@ Others:
 
 - Freetype
 > Text & Fonts
+
+- Miniaudio
+> Audio (Sounds & Music)
 
 ## Building / Setup CPL 
 
