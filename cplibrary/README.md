@@ -8,6 +8,11 @@ since september 2025.
 
 ## Example code
 ```c
+//
+// main.c
+// 
+
+#define CPL_IMPLEMENTATION
 #include <cpl/cpl.h>
 
 int main() {
@@ -51,15 +56,37 @@ It is not much yet but these are the projects and their link to GitHub:
 - [Ghost Buster](https://github.com/ColinIndieDev/Ghost-Buster)
 - [CPAI](https://github.com/ColinIndieDev/CPAI)
 
+Here is an impression of my first 3D game using my library:
+
+![img](img/minecraft.png)
 ### C (99)
 
 In the CP-Headers repo are all projects I made with C in this version of CPL (most inside `src/` or separate repos):
 
 - Flappy Bird Clone
+  
+![img](img/flappy_bird.png)
+
+
 - QR Code Gen
+  
+![img](img/qr_code.png)
+
+
 - Pendulum
+  
+![img](img/pendulum.png)
+
+
 - Sort Visualization
-- Minecraft 2D
+  
+![img](img/sorting.png)
+
+
+- [Minecraft 2D](https://github.com/ColinIndieDev/Minecraft-2D-in-C)
+  
+![img](img/minecraft_2D.png)
+
 
 In the future, I will make other projects using my library and keep extending it as well!
 
@@ -84,7 +111,7 @@ Both:
 - Camera
   
 Others:
-- Key Inputs
+- Key & Mouse Inputs
 - Audio
 - Screenshot
 
