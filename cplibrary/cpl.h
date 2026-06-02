@@ -1803,8 +1803,8 @@ void _web_window_resize() {
 #ifdef __EMSCRIPTEN__
     i32 w = emscripten_run_script_int("window.innerWidth");
     i32 h = emscripten_run_script_int("window.innerHeight");
-    if ((f32)w != screen_width || (f32)h != screen_height) {
-        glfwSetWindowSize(window, w, h);
+    if ((f32)w != _screen_width || (f32)h != _screen_height) {
+        glfwSetWindowSize(_window, w, h);
     }
 #endif
 }
@@ -1836,6 +1836,9 @@ void _init_shaders() {
                   "/shaders/frag/2D/texture_unlit_w.frag");
     create_shader(&_shaders[TEXTURE_2D_LIT], "/shaders/vert/2D/texture_w.vert",
                   "/shaders/frag/2D/texture_lit_w.frag");
+
+    create_shader(&_hdr_shader, "/shaders/vert/2D/hdr_w.vert",
+                  "/shaders/frag/2D/hdr_w.frag");
 #endif
 }
 
@@ -1843,7 +1846,9 @@ void init_window(u32 width, u32 height, c8 *title, u32 version) {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (i32)version / 10);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (i32)version % 10);
+#ifndef __EMSCRIPTEN__
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#endif
 #ifdef OPENGL_DEBUG
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, 1);
 #else
@@ -2173,7 +2178,7 @@ b8 tilemap_tile_exists(tilemap *m, vec2f pos);
 void tilemap_check_collidable_tiles(tilemap *m, vec2f size);
 b8 tilemap_tile_collidable(tilemap *m, vec2f pos);
 vec2f tilemap_get_tile_uv(tilemap *m, vec2f pos);
-void tilemap_draw(tilemap *m);
+void tilemap_draw(tilemap *m, vec4f color);
 
 #ifdef CPL_IMPLEMENTATION
 
@@ -2326,7 +2331,7 @@ void tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv) {
     m->renderer.count += 6;
 }
 
-void tilemap_draw(tilemap *m) {
+void tilemap_draw(tilemap *m, vec4f color) {
     if (m->renderer.count == 0) {
         return;
     }
@@ -2338,7 +2343,7 @@ void tilemap_draw(tilemap *m) {
     mat4f transform;
     mat4f_identity(&transform);
     shader_set_mat4f(&_shaders[_cur_draw_mode], "transform", transform);
-    shader_set_rgba(&_shaders[_cur_draw_mode], "input_color", WHITE);
+    shader_set_rgba(&_shaders[_cur_draw_mode], "input_color", color);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m->tex.id);
