@@ -9,6 +9,10 @@
 #define HASH_TOMBSTONE 2
 
 #define HASHMAP_DEF(key_type, val_type, name)                                  \
+    HASHMAP_DECL(key_type, val_type, name);                                    \
+    HASHMAP_IMPL(key_type, val_type, name);
+
+#define HASHMAP_DECL(key_type, val_type, name)                                 \
     typedef struct {                                                           \
         key_type key;                                                          \
         val_type value;                                                        \
@@ -19,6 +23,19 @@
         u32 capacity;                                                          \
         u32 size;                                                              \
     } name;                                                                    \
+    static u32 name##_hash(key_type key);                                      \
+    void name##_init(name *m, u32 capacity);                                   \
+    void name##_destroy(name *m);                                              \
+    static u32 name##_probe(name *m, key_type key);                            \
+    void name##_resize(name *m);                                               \
+    void name##_put(name *m, key_type key, val_type value);                    \
+    val_type *name##_get(name *m, key_type key);                               \
+    void name##_remove(name *m, key_type key);                                 \
+    name##_entry *name##_begin(name *m);                                       \
+    name##_entry *name##_end(name *m);                                         \
+    b8 name##_empty(name *m);
+
+#define HASHMAP_IMPL(key_type, val_type, name)                                 \
     static u32 name##_hash(key_type key) { return (u32)key * 2654435761u; }    \
     void name##_init(name *m, u32 capacity) {                                  \
         assert(m != NULLPTR);                                                  \
@@ -67,13 +84,12 @@
     }                                                                          \
     void name##_put(name *m, key_type key, val_type value) {                   \
         assert(m != NULLPTR);                                                  \
+        if ((f32)(m->size + 1) / m->capacity > 0.7f) {                         \
+            name##_resize(m);                                                  \
+        }                                                                      \
         u32 idx = name##_probe(m, key);                                        \
         if (m->data[idx].state != HASH_OCCUPIED) {                             \
             m->size++;                                                         \
-        }                                                                      \
-        if ((f32)m->size / m->capacity > 0.7f) {                               \
-            name##_resize(m);                                                  \
-            idx = name##_probe(m, key);                                        \
         }                                                                      \
         m->data[idx].key = key;                                                \
         m->data[idx].value = value;                                            \

@@ -5,7 +5,7 @@
 #include "cpbase.h"
 #include <stdlib.h>
 
-#define QUEUE_DEF(type, name)                                                  \
+#define QUEUE_DECL(type, name)                                                 \
     typedef struct {                                                           \
         type *data;                                                            \
         u32 capacity;                                                          \
@@ -13,6 +13,16 @@
         u32 head;                                                              \
         u32 tail;                                                              \
     } name;                                                                    \
+    void name##_init(name *q, u32 capacity);                                   \
+    void name##_destroy(name *q);                                              \
+    void name##_resize(name *q);                                               \
+    void name##_push(name *q, type val);                                       \
+    void name##_pop(name *q, type *data);                                      \
+    type *name##_front(name *q);                                               \
+    type *name##_back(name *q);                                                \
+    b8 name##_empty(name *q);
+
+#define QUEUE_IMPL(type, name)                                                 \
     void name##_init(name *q, u32 capacity) {                                  \
         assert(q != NULLPTR);                                                  \
         assert(capacity > 0);                                                  \
