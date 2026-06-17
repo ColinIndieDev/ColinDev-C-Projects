@@ -117,7 +117,9 @@ endforeach()
 message(STATUS "============================================")
 
 add_executable(${CMAKE_PROJECT_NAME}
-    src/vec2.c
+    cpstd/cphash.c
+
+    src/hash_test.c
     ${SOURCE_FILES}
 )
 

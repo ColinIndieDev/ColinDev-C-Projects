@@ -1,246 +1,136 @@
 #pragma once
 
 #include <assert.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
-#include "cpmath.h"
+typedef enum : uint8_t {
+    HASH_EMPTY = 0,
+    HASH_OCCUPIED,
+    HASH_TOMBSTONE
+} hm_entry_state_t;
 
-#define HASH_EMPTY 0
-#define HASH_OCCUPIED 1
-#define HASH_TOMBSTONE 2
+typedef struct {
+    uint8_t *flag;
+    size_t size;
+    size_t capacity;
+} hm_header_t;
 
-#define HASHMAP_DEF(key_type, val_type, name)                                  \
-    HASHMAP_DECL(key_type, val_type, name);                                    \
-    HASHMAP_IMPL(key_type, val_type, name);
+#define HM_STRING_KEY size_t
 
-#define HASHMAP_DECL(key_type, val_type, name)                                 \
-    typedef struct {                                                           \
-        key_type key;                                                          \
-        val_type value;                                                        \
-        u8 state;                                                              \
-    } name##_entry;                                                            \
-    typedef struct {                                                           \
-        name##_entry *data;                                                    \
-        u32 capacity;                                                          \
-        u32 size;                                                              \
-    } name;                                                                    \
-    static u32 name##_hash(key_type key);                                      \
-    void name##_init(name *m, u32 capacity);                                   \
-    void name##_destroy(name *m);                                              \
-    static u32 name##_probe(name *m, key_type key);                            \
-    void name##_resize(name *m);                                               \
-    void name##_put(name *m, key_type key, val_type value);                    \
-    val_type *name##_get(name *m, key_type key);                               \
-    void name##_remove(name *m, key_type key);                                 \
-    name##_entry *name##_begin(name *m);                                       \
-    name##_entry *name##_end(name *m);                                         \
-    b8 name##_empty(name *m);
+#define hm_header(hm) ((hm_header_t *)(hm) - 1)
+#define hm_size(hm) ((hm) ? hm_header(hm)->size : 0)
+#define hm_empty(hm) (hm_header(hm)->size == 0)
 
-#define HASHMAP_IMPL(key_type, val_type, name)                                 \
-    static u32 name##_hash(key_type key) { return (u32)key * 2654435761u; }    \
-    void name##_init(name *m, u32 capacity) {                                  \
-        assert(m != NULLPTR);                                                  \
-        capacity = CPM_MAX(8, capacity);                                       \
-        m->capacity = capacity;                                                \
-        m->size = 0;                                                           \
-        m->data = malloc(capacity * sizeof(name##_entry));                     \
-        memset(m->data, 0, capacity * sizeof(name##_entry));                   \
-    }                                                                          \
-    void name##_destroy(name *m) {                                             \
-        assert(m != NULLPTR);                                                  \
-        free(m->data);                                                         \
-        m->capacity = 0;                                                       \
-        m->size = 0;                                                           \
-    }                                                                          \
-    static u32 name##_probe(name *m, key_type key) {                           \
-        assert(m != NULLPTR);                                                  \
-        u32 idx = name##_hash(key) % m->capacity;                              \
-        while (m->data[idx].state == HASH_OCCUPIED &&                          \
-               m->data[idx].key != key) {                                      \
-            idx = (idx + 1) % m->capacity;                                     \
-        }                                                                      \
-        return idx;                                                            \
-    }                                                                          \
-    void name##_resize(name *m) {                                              \
-        assert(m != NULLPTR);                                                  \
-        name##_entry *old_data = m->data;                                      \
-        u32 old_capacity = m->capacity;                                        \
-        u32 new_capacity = old_capacity * 2;                                   \
-        m->data = malloc(new_capacity * sizeof(name##_entry));                 \
-        memset(m->data, 0, new_capacity * sizeof(name##_entry));               \
-        m->capacity = new_capacity;                                            \
-        m->size = 0;                                                           \
-        for (u32 i = 0; i < old_capacity; i++) {                               \
-            if (old_data[i].state == HASH_OCCUPIED) {                          \
-                u32 idx = name##_probe(m, old_data[i].key);                    \
-                if (m->data[idx].state != HASH_OCCUPIED) {                     \
-                    m->size++;                                                 \
-                }                                                              \
-                m->data[idx].key = old_data[i].key;                            \
-                m->data[idx].value = old_data[i].value;                        \
-                m->data[idx].state = HASH_OCCUPIED;                            \
-            }                                                                  \
-        }                                                                      \
-        free(old_data);                                                        \
-    }                                                                          \
-    void name##_put(name *m, key_type key, val_type value) {                   \
-        assert(m != NULLPTR);                                                  \
-        if ((f32)(m->size + 1) / m->capacity > 0.7f) {                         \
-            name##_resize(m);                                                  \
-        }                                                                      \
-        u32 idx = name##_probe(m, key);                                        \
-        if (m->data[idx].state != HASH_OCCUPIED) {                             \
-            m->size++;                                                         \
-        }                                                                      \
-        m->data[idx].key = key;                                                \
-        m->data[idx].value = value;                                            \
-        m->data[idx].state = HASH_OCCUPIED;                                    \
-    }                                                                          \
-    val_type *name##_get(name *m, key_type key) {                              \
-        assert(m != NULLPTR);                                                  \
-        u32 idx = name##_hash(key) % m->capacity;                              \
-        while (m->data[idx].state != HASH_EMPTY) {                             \
-            if (m->data[idx].state == HASH_OCCUPIED &&                         \
-                m->data[idx].key == key) {                                     \
-                return &m->data[idx].value;                                    \
-            }                                                                  \
-            idx = (idx + 1) % m->capacity;                                     \
-        }                                                                      \
-        return NULL;                                                           \
-    }                                                                          \
-    void name##_remove(name *m, key_type key) {                                \
-        assert(m != NULLPTR);                                                  \
-        u32 idx = name##_hash(key) % m->capacity;                              \
-        while (m->data[idx].state != HASH_EMPTY) {                             \
-            if (m->data[idx].state == HASH_OCCUPIED &&                         \
-                m->data[idx].key == key) {                                     \
-                m->data[idx].state = HASH_TOMBSTONE;                           \
-                m->size--;                                                     \
-                return;                                                        \
-            }                                                                  \
-            idx = (idx + 1) % m->capacity;                                     \
-        }                                                                      \
-    }                                                                          \
-    name##_entry *name##_begin(name *m) {                                      \
-        assert(m != NULLPTR);                                                  \
-        return m->data;                                                        \
-    }                                                                          \
-    name##_entry *name##_end(name *m) {                                        \
-        assert(m != NULLPTR);                                                  \
-        return m->data + m->capacity;                                          \
-    }                                                                          \
-    b8 name##_empty(name *m) {                                                 \
-        assert(m != NULLPTR);                                                  \
-        return m->size <= 0;                                                   \
+#define hm_init(hm, capacity) hm_init_impl(sizeof(*(hm)), capacity)
+void *hm_init_impl(size_t element_size, size_t capacity);
+void hm_destroy(void *hm);
+
+static size_t hm_hash(void *key, size_t key_size) {
+    assert(key);
+    size_t hash = 14695981039346656037ULL;
+    uint8_t *bytes = (uint8_t *)key;
+    for (size_t i = 0; i < key_size; i++) {
+        hash ^= bytes[i];
+        hash *= 1099511628211ULL;
     }
+    return hash;
+}
 
-#define FOREACH_HM(mtype, it, mptr)                                            \
-    for (mtype##_entry *it = mtype##_begin(mptr); it != mtype##_end(mptr); it++)
-
-#define HASHSET_DEF(key_type, name)                                            \
-    typedef struct {                                                           \
-        key_type key;                                                          \
-        u8 state;                                                              \
-    } name##_entry;                                                            \
-    typedef struct {                                                           \
-        name##_entry *data;                                                    \
-        u32 capacity;                                                          \
-        u32 size;                                                              \
-    } name;                                                                    \
-    static u32 name##_hash(key_type key) { return (u32)key * 2654435761u; }    \
-    void name##_init(name *s, u32 capacity) {                                  \
-        assert(s != NULLPTR);                                                  \
-        capacity = CPM_MAX(8, capacity);                                       \
-        s->capacity = capacity;                                                \
-        s->size = 0;                                                           \
-        s->data = malloc(capacity * sizeof(name##_entry));                     \
-        memset(s->data, 0, capacity * sizeof(name##_entry));                   \
-    }                                                                          \
-    void name##_destroy(name *s) {                                             \
-        assert(s != NULLPTR);                                                  \
-        free(s->data);                                                         \
-        s->capacity = 0;                                                       \
-        s->size = 0;                                                           \
-    }                                                                          \
-    static u32 name##_probe(name *s, key_type key) {                           \
-        assert(s != NULLPTR);                                                  \
-        u32 idx = name##_hash(key) % s->capacity;                              \
-        while (s->data[idx].state == HASH_OCCUPIED &&                          \
-               s->data[idx].key != key) {                                      \
-            idx = (idx + 1) % s->capacity;                                     \
-        }                                                                      \
-        return idx;                                                            \
-    }                                                                          \
-    void name##_resize(name *s) {                                              \
-        assert(s != NULLPTR);                                                  \
-        name##_entry *old_data = s->data;                                      \
-        u32 old_capacity = s->capacity;                                        \
-        u32 new_capacity = old_capacity * 2;                                   \
-        s->data = malloc(new_capacity * sizeof(name##_entry));                 \
-        memset(s->data, 0, new_capacity * sizeof(name##_entry));               \
-        s->capacity = new_capacity;                                            \
-        s->size = 0;                                                           \
-        for (u32 i = 0; i < old_capacity; i++) {                               \
-            if (old_data[i].state == HASH_OCCUPIED) {                          \
-                u32 idx = name##_probe(s, old_data[i].key);                    \
-                if (s->data[idx].state != HASH_OCCUPIED) {                     \
-                    s->size++;                                                 \
-                }                                                              \
-                s->data[idx].key = old_data[i].key;                            \
-                s->data[idx].state = HASH_OCCUPIED;                            \
-            }                                                                  \
-        }                                                                      \
-        free(old_data);                                                        \
-    }                                                                          \
-    void name##_put(name *s, key_type key) {                                   \
-        assert(s != NULLPTR);                                                  \
-        u32 idx = name##_probe(s, key);                                        \
-        if (s->data[idx].state != HASH_OCCUPIED) {                             \
-            s->size++;                                                         \
-        }                                                                      \
-        if ((f32)s->size / s->capacity > 0.7f) {                               \
-            name##_resize(s);                                                  \
-            idx = name##_probe(s, key);                                        \
-        }                                                                      \
-        s->data[idx].key = key;                                                \
-        s->data[idx].state = HASH_OCCUPIED;                                    \
-    }                                                                          \
-    b8 name##_contains(name *s, key_type key) {                                \
-        assert(s != NULLPTR);                                                  \
-        u32 idx = name##_hash(key) % s->capacity;                              \
-        while (s->data[idx].state != HASH_EMPTY) {                             \
-            if (s->data[idx].state == HASH_OCCUPIED &&                         \
-                s->data[idx].key == key) {                                     \
-                return true;                                                   \
-            }                                                                  \
-            idx = (idx + 1) % s->capacity;                                     \
-        }                                                                      \
-        return false;                                                          \
-    }                                                                          \
-    void name##_remove(name *s, key_type key) {                                \
-        assert(s != NULLPTR);                                                  \
-        u32 idx = name##_hash(key) % s->capacity;                              \
-        while (s->data[idx].state != HASH_EMPTY) {                             \
-            if (s->data[idx].state == HASH_OCCUPIED &&                         \
-                s->data[idx].key == key) {                                     \
-                s->data[idx].state = HASH_TOMBSTONE;                           \
-                s->size--;                                                     \
-                return;                                                        \
-            }                                                                  \
-            idx = (idx + 1) % s->capacity;                                     \
-        }                                                                      \
-    }                                                                          \
-    name##_entry *name##_begin(name *s) {                                      \
-        assert(s != NULLPTR);                                                  \
-        return s->data;                                                        \
-    }                                                                          \
-    name##_entry *name##_end(name *s) {                                        \
-        assert(s != NULLPTR);                                                  \
-        return s->data + s->capacity;                                          \
-    }                                                                          \
-    b8 name##_empty(name *s) {                                                 \
-        assert(s != NULLPTR);                                                  \
-        return s->size <= 0;                                                   \
+static size_t hm_string_to_key(char *str) {
+    size_t hash = 0xcbf29ce484222325ULL;
+    while (*str) {
+        hash ^= (unsigned char)*str++;
+        hash *= 0x100000001b3ULL;
     }
+    return hash;
+}
 
-#define FOREACH_HS(stype, it, sptr)                                            \
-    for (stype##_entry *it = stype##_begin(sptr); it != stype##_end(sptr); it++)
+static size_t hm_probe_impl(void *hm, void *key, size_t key_size,
+                            size_t element_size) {
+    assert(hm);
+    assert(key);
+    hm_header_t *header = hm_header(hm);
+    size_t hash = hm_hash(key, key_size);
+    size_t idx = hash % header->capacity;
+    size_t first_tomb = (size_t)-1;
+
+    char *data = (char *)hm;
+
+    while (1) {
+        if (header->flag[idx] == HASH_EMPTY) {
+            return first_tomb != (size_t)-1 ? first_tomb : idx;
+        }
+        if (header->flag[idx] == HASH_TOMBSTONE) {
+            if (first_tomb == (size_t)-1) {
+                first_tomb = idx;
+            }
+        } else if (header->flag[idx] == HASH_OCCUPIED) {
+            void *cur_key = data + (idx * element_size);
+            if (memcmp(cur_key, key, key_size) == 0) {
+                return idx;
+            }
+        }
+        idx = (idx + 1) % header->capacity;
+    }
+}
+
+void *hm_resize_impl(void *hm, size_t element_size, size_t key_size);
+
+void *hm_begin(void *hm);
+#define hm_end(hm) hm_end_impl(hm, sizeof(*(hm)))
+void *hm_end_impl(void *hm, size_t element_size);
+
+#define hm_it_exist(hm, it) hm_it_exist_impl(hm, it, sizeof(*(hm)))
+int hm_it_exist_impl(void *hm, void *it, size_t element_size);
+
+#define hm_put(hm, key_val, val_val)                                           \
+    do {                                                                       \
+        hm_header_t *header = hm_header(hm);                                   \
+        if ((float)(header->size + 1) / header->capacity > 0.7f) {             \
+            (hm) = hm_resize_impl(hm, sizeof(*(hm)), sizeof((hm)->key));       \
+            header = hm_header(hm);                                            \
+        }                                                                      \
+        __auto_type k = (key_val);                                             \
+        size_t idx = hm_probe_impl(hm, &k, sizeof((hm)->key), sizeof(*(hm)));  \
+        if (header->flag[idx] != HASH_OCCUPIED) {                              \
+            header->size++;                                                    \
+            header->flag[idx] = HASH_OCCUPIED;                                 \
+        }                                                                      \
+        (hm)[idx].key = k;                                                     \
+        (hm)[idx].value = (val_val);                                           \
+    } while (0)
+#define hm_get(hm, key_val)                                                    \
+    ({                                                                         \
+        __auto_type k = (key_val);                                             \
+        size_t idx = hm_probe_impl(hm, &k, sizeof((hm)->key), sizeof(*(hm)));  \
+        (hm_header(hm)->flag[idx] == HASH_OCCUPIED) ? &((hm)[idx].value)       \
+                                                    : NULL;                    \
+    })
+#define hm_get_element(hm, key_val)                                            \
+    ({                                                                         \
+        __auto_type k = (key_val);                                             \
+        size_t idx = hm_probe_impl(hm, &k, sizeof((hm)->key), sizeof(*(hm)));  \
+        (hm_header(hm)->flag[idx] == HASH_OCCUPIED) ? &((hm)[idx]) : NULL;     \
+    })
+#define hm_remove(hm, key_val)                                                 \
+    do {                                                                       \
+        __auto_type k = (key_val);                                             \
+        size_t idx = hm_probe_impl(hm, &k, sizeof((hm)->key), sizeof(*(hm)));  \
+        hm_header_t *header = hm_header(hm);                                   \
+        if (header->flag[idx] == HASH_OCCUPIED) {                              \
+            header->flag[idx] = HASH_TOMBSTONE;                                \
+            header->size--;                                                    \
+        }                                                                      \
+    } while (0)
+
+#define foreach_hm(type, it, hashm)                                            \
+    for (type * (it) = hm_begin(hashm);                                        \
+         (it) != hm_end_impl(hashm, sizeof(*(hashm))); (it)++)
+
+#define HM_CREATE_ENTRY(key_t, val_t, name)                                    \
+    typedef struct {                                                           \
+        key_t key;                                                             \
+        val_t value;                                                           \
+    }(name);

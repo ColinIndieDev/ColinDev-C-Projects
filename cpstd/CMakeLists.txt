@@ -6,19 +6,24 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(cpstd VERSION 1.0.0 LANGUAGES C)
 
-add_library(cpstd INTERFACE)
+# Too lazy but not recommended at all 
+file(GLOB CPSTD_SOURCES "*.c")
+file(GLOB CPSTD_HEADERS "*.h")
 
-target_include_directories(cpstd INTERFACE
+add_library(cpstd STATIC ${CPSTD_SOURCES} ${CPSTD_HEADERS})
+target_include_directories(cpstd PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
-
-# Not recommended but I am too lazy to write it out
-file(GLOB CPSTD_HEADERS "*.h")
-install(FILES ${CPSTD_HEADERS} DESTINATION include/cpstd)
+set_target_properties(cpstd PROPERTIES
+    PUBLIC_HEADER "${CPSTD_HEADERS}"
+)
 
 install(TARGETS cpstd
     EXPORT cpstdTargets
+    ARCHIVE DESTINATION lib          
+    LIBRARY DESTINATION lib          
+    PUBLIC_HEADER DESTINATION include/cpstd 
 )
 
 install(EXPORT cpstdTargets
