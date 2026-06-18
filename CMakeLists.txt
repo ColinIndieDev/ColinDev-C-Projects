@@ -118,8 +118,10 @@ message(STATUS "============================================")
 
 add_executable(${CMAKE_PROJECT_NAME}
     cpstd/cphash.c
+    cpstd/cpvec.c
+    cpstd/cpbitarr.c
 
-    src/hash_test.c
+    src/test.c
     ${SOURCE_FILES}
 )
 

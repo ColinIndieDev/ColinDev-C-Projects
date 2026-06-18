@@ -2,7 +2,6 @@
 
 #include <assert.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
 typedef enum : uint8_t {

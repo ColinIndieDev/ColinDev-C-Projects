@@ -1,44 +1,19 @@
 #pragma once
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdlib.h>
-#include "cpbase.h"
 
 typedef struct {
-    u8 *data;
-    u32 bits;
-} bit_arr;
+    size_t bits;
+} bit_header_t;
 
-void bit_arr_init(bit_arr *a, u32 bits) {
-    assert(a != NULLPTR);
-    assert(bits > 0);
-    a->bits = bits;
-    u32 bytes = (bits + 7) / 8;
-    a->data = calloc(bytes, 1);
-}
-void bit_arr_destroy(bit_arr *a) {
-    assert(a != NULLPTR);
-    free(a->data);
-    a->bits = 0;
-}
-void bit_arr_set(bit_arr *a, u32 i) {
-    assert(a != NULLPTR);
-    assert(i >= 0 && i < a->bits);
-    u32 byte = i >> 3;
-    u32 bit = i & 7;
-    a->data[byte] |= (1 << bit);
-}
-void bit_arr_clear(bit_arr *a, u32 i) {
-    assert(a != NULLPTR);
-    assert(i >= 0 && i < a->bits);
-    u32 byte = i >> 3;
-    u32 bit = i & 7;
-    a->data[byte] &= ~(1 << bit);
-}
-b8 bit_arr_get(bit_arr *a, u32 i) {
-    assert(a != NULLPTR);
-    assert(i >= 0 && i < a->bits);
-    u32 byte = i >> 3;
-    u32 bit = i & 7;
-    return (a->data[byte] >> bit) & 1;
-}
+#define bit_header(arr) ((bit_header_t *)(arr) - 1)
+#define bit_arr_bits(arr) ((arr) ? bit_header(arr)->bits : 0)
+
+uint8_t *bit_arr_init(size_t bits);
+void bit_arr_destroy(uint8_t *arr);
+
+void bit_arr_set(uint8_t *arr, size_t i);
+void bit_arr_clear(uint8_t *arr, size_t i);
+uint8_t bit_arr_get(const uint8_t *arr, size_t i);

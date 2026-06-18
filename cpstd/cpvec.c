@@ -1,18 +1,13 @@
-#pragma once
+#include "cpvec.h"
 
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct {
-    size_t size;
-    size_t capacity;
-} header_t;
-
-#define vec_init(arr, capacity) vec_init_impl(sizeof(*(arr)), capacity)
 void *vec_init_impl(size_t element_size, size_t capacity) {
     assert(capacity > 0);
-    header_t *header = malloc(sizeof(header_t) + (element_size * capacity));
+    vec_header_t *header =
+        malloc(sizeof(vec_header_t) + (element_size * capacity));
     header->size = 0;
     header->capacity = capacity;
     return (void *)(header + 1);
@@ -20,22 +15,17 @@ void *vec_init_impl(size_t element_size, size_t capacity) {
 
 void vec_destroy(void *arr) {
     assert(arr);
-    header_t *header = (header_t *)arr - 1;
+    vec_header_t *header = vec_header(arr);
     free(header);
 }
 
-#define vec_push(arr, x)                                                       \
-    do {                                                                       \
-        __auto_type tmp = (x);                                                 \
-        (arr) = vec_push_impl((arr), &tmp, sizeof(*(arr)));                    \
-    } while (0)
 void *vec_push_impl(void *arr, void *val, size_t element_size) {
     assert(arr);
-    header_t *header = (header_t *)arr - 1;
+    vec_header_t *header = vec_header(arr);
     if (header->size >= header->capacity) {
         size_t new_capacity = header->capacity * 2;
-        header_t *tmp =
-            realloc(header, sizeof(header_t) + (element_size * new_capacity));
+        vec_header_t *tmp = realloc(header, sizeof(vec_header_t) +
+                                                (element_size * new_capacity));
         assert(tmp);
         header = tmp;
         header->capacity = new_capacity;
@@ -46,18 +36,13 @@ void *vec_push_impl(void *arr, void *val, size_t element_size) {
     return arr;
 }
 
-#define vec_push_front(arr, x)                                                 \
-    do {                                                                       \
-        __auto_type tmp = (x);                                                 \
-        (arr) = vec_push_front_impl((arr), &tmp, sizeof(*(arr)));              \
-    } while (0)
 void *vec_push_front_impl(void *arr, void *val, size_t element_size) {
     assert(arr);
-    header_t *header = (header_t *)arr - 1;
+    vec_header_t *header = vec_header(arr);
     if (header->size >= header->capacity) {
         size_t new_capacity = header->capacity * 2;
-        header_t *tmp =
-            realloc(header, sizeof(header_t) + (element_size * new_capacity));
+        vec_header_t *tmp = realloc(header, sizeof(vec_header_t) +
+                                                (element_size * new_capacity));
         assert(tmp);
         header = tmp;
         header->capacity = new_capacity;
@@ -71,34 +56,37 @@ void *vec_push_front_impl(void *arr, void *val, size_t element_size) {
 
 void vec_pop(void *arr) {
     assert(arr);
-    header_t *header = (header_t *)arr - 1;
+    vec_header_t *header = vec_header(arr);
     assert(header->size > 0);
     header->size--;
 }
 
-#define vec_pop_front(arr) vec_pop_front_impl((arr), sizeof(*(arr)))
 void vec_pop_front_impl(void *arr, size_t element_size) {
     assert(arr);
-    header_t *header = (header_t *)arr - 1;
+    vec_header_t *header = vec_header(arr);
     assert(header->size > 0);
     memmove(arr, arr + element_size, (header->size - 1) * element_size);
     header->size--;
 }
 
-#define vec_delete(arr, i) vec_delete_impl((arr), (i), sizeof(*(arr)))
 void vec_delete_impl(void *arr, size_t i, size_t element_size) {
     assert(arr);
-    header_t *header = (header_t *)arr - 1;
+    vec_header_t *header = vec_header(arr);
     assert(0 <= i && i < header->size && header->size > 0);
     memmove(arr + (i * element_size), arr + ((i + 1) * element_size),
             (header->size - i - 1) * element_size);
     header->size--;
 }
 
-size_t vec_size(void *arr) {
+void *vec_front(void *arr) {
     assert(arr);
-    header_t *header = (header_t *)arr - 1;
-    return header->size;
+    return arr;
+}
+
+void *vec_back_impl(void *arr, size_t element_size) {
+    assert(arr);
+    vec_header_t *header = vec_header(arr);
+    return arr + ((header->size - 1) * element_size);
 }
 
 void *vec_begin(void *arr) {
@@ -106,12 +94,8 @@ void *vec_begin(void *arr) {
     return arr;
 }
 
-#define vec_end(arr) vec_end_impl((void *)(arr), sizeof(*(arr)))
 void *vec_end_impl(void *arr, size_t element_size) {
     assert(arr);
-    header_t *header = (header_t *)arr - 1;
+    vec_header_t *header = vec_header(arr);
     return arr + (header->size * element_size);
 }
-
-#define foreach_vec(type, it, arr)                                             \
-    for (type * (it) = arr; (it) != vec_end(arr); ++(it))
