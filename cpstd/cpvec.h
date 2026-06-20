@@ -43,5 +43,16 @@ void *vec_begin(void *arr);
 #define vec_end(arr) vec_end_impl((arr), sizeof(*(arr)))
 void *vec_end_impl(void *arr, size_t element_size);
 
-#define foreach_vec(type, it, arr)                                             \
-    for (type * (it) = arr; (it) != vec_end(arr); ++(it))
+#define foreach_vec(it, arr)                                                   \
+    for (__auto_type(it) = (arr); (it) != vec_end(arr); ++(it))
+
+#define vec_erase_if(it, arr, cond)                                            \
+    do {                                                                       \
+        size_t write_idx = 0;                                                  \
+        for (__auto_type(it) = (arr); (it) != vec_end(arr); ++(it)) {          \
+            if (!(cond)) {                                                     \
+                (arr)[write_idx++] = *(it);                                    \
+            }                                                                  \
+        }                                                                      \
+        vec_header(arr)->size = write_idx;                                     \
+    } while (0)
