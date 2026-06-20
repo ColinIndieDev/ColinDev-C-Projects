@@ -1,7 +1,8 @@
 #pragma once
 
+#include <string.h>
+
 #include "cpbase.h"
-#include "cpvec.h"
 
 #define CPM_PI 3.14159265358979323846f
 

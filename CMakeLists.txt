@@ -90,6 +90,14 @@ file(DOWNLOAD
 add_library(miniaudio INTERFACE)
 target_include_directories(miniaudio INTERFACE "${CMAKE_BINARY_DIR}/_deps/miniaudio")
 
+# ENet
+FetchContent_Declare(
+    enet
+    GIT_REPOSITORY https://github.com/zpl-c/enet.git
+    GIT_TAG master
+)
+FetchContent_MakeAvailable(enet)
+
 # GLAD
 add_subdirectory(external/glad)
 
@@ -125,8 +133,9 @@ add_executable(${CMAKE_PROJECT_NAME}
     ${SOURCE_FILES}
 )
 
-# OpenMP, pthread, GLFW, GLAD, STB & FT
+# OpenMP, pthread, GLFW, GLAD, STB, FT & ENet
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${stb_SOURCE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${enet_SOURCE_DIR}/include)
 
 if (NOT EMSCRIPTEN)
     find_package(OpenMP REQUIRED)

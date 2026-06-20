@@ -2,6 +2,9 @@
 
 #include <stdio.h>
 
+#define CPL_IMPLEMENTATION
+#include "../cplibrary/cpl.h"
+
 #define LEN 10
 
 int main(void) {

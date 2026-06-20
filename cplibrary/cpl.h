@@ -14,12 +14,14 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #ifdef CPL_IMPLEMENTATION
 #define CPM_IMPL
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define MINIAUDIO_IMPLEMENTATION
+#define ENET_IMPLEMENTATION
 #endif
 
 #ifdef __EMSCRIPTEN__
@@ -32,8 +34,10 @@
 #include FT_FREETYPE_H
 #include "stb_image_write.h"
 #include <miniaudio.h>
+#include <enet.h>
 
 #include "../cpstd/cpmath.h"
+#include "../cpstd/cpvec.h"
 
 // {{{ Key Inputs
 
@@ -1135,12 +1139,10 @@ typedef struct {
     u32 advance;
 } letter;
 
-VEC_DECL(letter, vec_letters);
-
 typedef struct {
     u32 vao, vbo;
     c8 *name;
-    vec_letters letters;
+    letter *letters;
 } font;
 
 void create_font(font *f, c8 *path, c8 *name, texture_filtering filter);
@@ -1150,8 +1152,6 @@ void draw_text_raw(shader *s, font *f, c8 *text, vec2f pos, f32 scale,
 vec2f get_text_size(font *f, c8 *text, f32 scale);
 
 #ifdef CPL_IMPLEMENTATION
-
-VEC_IMPL(letter, vec_letters);
 
 void create_font(font *f, c8 *path, c8 *name, texture_filtering filter) {
     FT_Library ft;
@@ -1173,7 +1173,7 @@ void create_font(font *f, c8 *path, c8 *name, texture_filtering filter) {
     FT_Set_Pixel_Sizes(face, 0, 48);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    vec_letters_reserve(&f->letters, 128);
+    f->letters = vec_init(f->letters, 128);
     for (u8 c = 0; c < 128; c++) {
         if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
             cpl_log(LOG_ERR, "Failed to load Glyph");
@@ -1201,7 +1201,7 @@ void create_font(font *f, c8 *path, c8 *name, texture_filtering filter) {
                             .bearing = {(f32)face->glyph->bitmap_left,
                                         (f32)face->glyph->bitmap_top},
                             .advance = face->glyph->advance.x};
-        vec_letters_push_back(&f->letters, character);
+        vec_push(f->letters, character);
     }
     f->name = name;
 
@@ -1232,10 +1232,10 @@ void delete_font(font *f) {
         glDeleteBuffers(1, &f->vbo);
         f->vbo = 0;
     }
-    for (u32 i = 0; i < f->letters.size; i++) {
-        glDeleteTextures(1, &vec_letters_at(&f->letters, i)->id);
+    for (u32 i = 0; i < vec_size(f->letters); i++) {
+        glDeleteTextures(1, &f->letters[i].id);
     }
-    vec_letters_destroy(&f->letters);
+    vec_destroy(f->letters);
 }
 
 void draw_text_raw(shader *s, font *f, c8 *text, vec2f pos, f32 scale,
@@ -1245,13 +1245,10 @@ void draw_text_raw(shader *s, font *f, c8 *text, vec2f pos, f32 scale,
     glBindVertexArray(f->vao);
 
     for (u32 i = 0; i < strlen(text); i++) {
-        letter *l = vec_letters_at(&f->letters, text[i]);
+        letter *l = &f->letters[text[i]];
 
         f32 x_pos = pos.x + (l->bearing.x * scale);
-        f32 y_pos =
-            pos.y +
-            ((vec_letters_at(&f->letters, 'H')->bearing.y - l->bearing.y) *
-             scale);
+        f32 y_pos = pos.y + (f->letters['H'].bearing.y - l->bearing.y) * scale;
         f32 width = l->size.x * scale;
         f32 height = l->size.y * scale;
 
@@ -1284,7 +1281,7 @@ vec2f get_text_size(font *f, c8 *text, f32 scale) {
 
     for (u32 i = 0; i < strlen(text); i++) {
 
-        letter *l = vec_letters_at(&f->letters, text[i]);
+        letter *l = &f->letters[text[i]];
         f32 h = l->size.y * scale;
         max_above_base = CPM_MAX(max_above_base, l->bearing.y * scale);
         max_below_base = CPM_MAX(max_below_base, (h - (l->bearing.y * scale)));
@@ -2378,13 +2375,11 @@ typedef struct {
     b8 active;
 } particle;
 
-VEC_DECL(particle, vec_particle);
-
 typedef struct {
     vec2f pos;
     u32 max_particles;
 
-    vec_particle particles;
+    particle *particles;
 } particle_system;
 
 void create_particle_system(particle_system *ps, vec2f pos, u32 max_particles);
@@ -2395,24 +2390,22 @@ void add_particle(particle_system *ps, particle p);
 
 #ifdef CPL_IMPLEMENTATION
 
-VEC_IMPL(particle, vec_particle);
-
 void create_particle_system(particle_system *ps, vec2f pos, u32 max_particles) {
     ps->pos = pos;
     ps->max_particles = max_particles;
-    vec_particle_reserve(&ps->particles,
-                         max_particles >= 10 ||
-                                 max_particles == UNLIMITED_PARTICLES
-                             ? 10
-                             : max_particles);
+    ps->particles =
+        vec_init(ps->particles,
+                 max_particles >= 10 || max_particles == UNLIMITED_PARTICLES
+                     ? 10
+                     : max_particles);
 }
 
 void destroy_particle_system(particle_system *ps) {
-    vec_particle_destroy(&ps->particles);
+    vec_destroy(ps->particles);
 }
 
 void update_particle_system(particle_system *ps) {
-    FOREACH_VEC(particle, vec_particle, p, &ps->particles) {
+    foreach_vec(particle, p, ps->particles) {
         p->cur_life_time += get_dt();
         p->pos = vec2f_add(&VEC2F(p->dir.x * get_dt(), p->dir.y * get_dt()),
                            &p->pos);
@@ -2420,19 +2413,27 @@ void update_particle_system(particle_system *ps) {
             p->active = false;
         }
     }
+    
+    size_t write_idx = 0;
+    for (size_t read_idx = 0; read_idx < vec_size(ps->particles); read_idx++) {
+        if (ps->particles[read_idx].active) {
+            ps->particles[write_idx] = ps->particles[read_idx];
+            write_idx++;
+        }
 
-    VEC_ERASE_IF(&ps->particles, !it.active);
+    }
+    vec_header(ps->particles)->size = write_idx;
 }
 
 void draw_particles(particle_system *ps) {
-    FOREACH_VEC(particle, vec_particle, p, &ps->particles) {
+    foreach_vec(particle, p, ps->particles) {
         draw_texture2D(p->tex, p->pos, p->size, p->color, p->rot);
     }
 }
 
 void add_particle(particle_system *ps, particle p) {
-    if (ps->particles.size < ps->max_particles || ps->max_particles == 0) {
-        vec_particle_push_back(&ps->particles, p);
+    if (vec_size(ps->particles) < ps->max_particles || ps->max_particles == 0) {
+        vec_push(ps->particles, p);
     }
 }
 #endif
@@ -2685,6 +2686,271 @@ void apply_hdr(b8 gamma_correct, f32 exposure) {
     glBindVertexArray(0);
 }
 #endif
+
+// }}}
+
+// {{{ Networking
+
+typedef enum { NET_PACKET_RELIABLE = 1 } packet_flags;
+
+#define NET_SEC(s) ((s) * 1000)
+
+// {{{ Client
+
+typedef struct {
+    ENetHost *client;
+    ENetAddress address;
+    ENetEvent event;
+    ENetPeer *peer;
+} client_t;
+
+void *_net_worker_loop();
+
+bool client_create(client_t *client, char *ip, int port, int wait_ms);
+void client_destroy(client_t *client, int wait_ms);
+
+void client_create_worker_loop(client_t *client,
+                               void (*parse_data)(char *, size_t, void *),
+                               void *parse_data_arg);
+void client_destroy_worker_loop();
+
+#ifdef CPL_IMPLEMENTATION
+
+bool _net_worker_running = true;
+ENetHost *_host = NULL;
+void (*_parse_func)(char *, size_t, void *) = NULL;
+void *_parse_arg = NULL;
+pthread_t _net_worker;
+
+void *_net_worker_loop() {
+    while (_net_worker_running) {
+        ENetEvent event;
+        while (enet_host_service(_host, &event, 0) > 0) {
+            if (event.type == ENET_EVENT_TYPE_RECEIVE) {
+                _parse_func((char *)event.packet->data, event.packet->dataLength, _parse_arg);
+                enet_packet_destroy(event.packet);
+            }
+        }
+    }
+
+    return NULL;
+}
+
+void client_create_worker_loop(client_t *client, void (*parse_data)(char *, size_t, void *), void *parse_data_arg) {
+    _host = client->client;
+    _parse_func = parse_data;
+    _parse_arg = parse_data_arg;
+    pthread_create(&_net_worker, NULL, _net_worker_loop, NULL);
+}
+
+void client_destroy_worker_loop() {
+    _net_worker_running = false;
+    pthread_join(_net_worker, NULL);
+}
+
+bool client_create(client_t *client, char *ip, int port, int wait_ms) {
+    if (enet_initialize()) {
+        fprintf(stderr, "Failed to init ENet\n");
+        exit(-1);
+    }
+    atexit(enet_deinitialize);
+
+    client->client = NULL;
+    client->client = enet_host_create(NULL, 1, 1, 0, 0);
+    if (!client) {
+        fprintf(stderr, "Failed to create client host\n");
+        exit(-1);
+    }
+
+    if (!ip) {
+        fprintf(stderr, "IP is invalid\n");
+        exit(-1);
+    }
+
+    enet_address_set_host(&client->address, ip);
+    client->address.port = port;
+
+    client->peer = enet_host_connect(client->client, &client->address, 1, 0);
+    if (!client->peer) {
+        fprintf(stderr, "No peers available for connection\n");
+        exit(-1);
+    }
+
+    if (enet_host_service(client->client, &client->event, wait_ms) > 0 &&
+        client->event.type == ENET_EVENT_TYPE_CONNECT) {
+        return true;
+    }
+    enet_peer_reset(client->peer);
+    return false;
+}
+
+void client_destroy(client_t *client, int wait_ms) {
+    enet_peer_disconnect(client->peer, 0);
+    while (enet_host_service(client->client, &client->event, wait_ms) > 0) {
+        if (client->event.type == ENET_EVENT_TYPE_RECEIVE) {
+            enet_packet_destroy(client->event.packet);
+        } else if (client->event.type == ENET_EVENT_TYPE_DISCONNECT) {
+            break;
+        }
+    }
+}
+#endif
+
+// }}}
+
+// {{{ Server
+
+typedef struct {
+    ENetHost *server;
+    ENetAddress address;
+} server_t;
+
+void server_init(server_t *server, int port, struct in6_addr host,
+                 int max_clients);
+void server_destroy(server_t *server);
+
+#ifdef CPL_IMPLEMENTATION
+
+void server_init(server_t *server, int port, struct in6_addr host,
+                 int max_clients) {
+    if (enet_initialize()) {
+        fprintf(stderr, "Failed to init ENet\n");
+        exit(-1);
+    }
+    atexit(enet_deinitialize);
+
+    server->address.host = host;
+    server->address.port = port;
+
+    server->server = enet_host_create(&server->address, max_clients, 1, 0, 0);
+    if (!server) {
+        fprintf(stderr, "Failed to create server host\n");
+        exit(-1);
+    }
+}
+
+void server_destroy(server_t *server) { enet_host_destroy(server->server); }
+#endif
+
+// }}}
+
+// {{{ Packets
+
+typedef struct {
+    uint8_t data[1024];
+    size_t size;
+} packet_writer;
+
+void packet_writer_init(packet_writer *writer, uint8_t packet_id);
+void packet_write_char(packet_writer *writer, char val);
+void packet_write_int(packet_writer *writer, int val);
+void packet_write_uint(packet_writer *writer, unsigned int val);
+void packet_write_float(packet_writer *writer, float val);
+void packet_write_bool(packet_writer *writer, bool val);
+
+typedef struct {
+    uint8_t *data;
+    size_t size;
+    size_t pos;
+} packet_reader;
+
+uint8_t packet_reader_init(packet_reader *reader, uint8_t *data, size_t size);
+char packet_read_char(packet_reader *reader);
+int packet_read_int(packet_reader *reader);
+unsigned int packet_read_uint(packet_reader *reader);
+float packet_read_float(packet_reader *reader);
+bool packet_read_bool(packet_reader *reader);
+
+void send_packet(client_t *client, packet_writer *writer, int packet_flag);
+void broadcast_packet(server_t *server, packet_writer *writer,
+                      int packet_flag);
+
+#ifdef CPL_IMPLEMENTATION
+
+void packet_writer_init(packet_writer *writer, uint8_t packet_id) {
+    writer->data[0] = packet_id;
+    writer->size = 1;
+}
+
+void packet_write_char(packet_writer *writer, char val) {
+    writer->data[writer->size++] = val;
+}
+
+void packet_write_int(packet_writer *writer, int val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(int));
+    writer->size += sizeof(int);
+}
+
+void packet_write_uint(packet_writer *writer, unsigned int val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(unsigned int));
+    writer->size += sizeof(unsigned int);
+}
+
+void packet_write_float(packet_writer *writer, float val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(float));
+    writer->size += sizeof(float);
+}
+
+void packet_write_bool(packet_writer *writer, bool val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(bool));
+    writer->size += sizeof(bool);
+}
+
+uint8_t packet_reader_init(packet_reader *reader, uint8_t *data, size_t size) {
+    reader->data = data;
+    reader->size = size;
+    reader->pos = 0;
+
+    return reader->data[reader->pos++];
+}
+
+char packet_read_char(packet_reader *reader) {
+    return (char)reader->data[reader->pos++];
+}
+
+int packet_read_int(packet_reader *reader) {
+    int val = 0;
+    memcpy(&val, &reader->data[reader->pos], sizeof(int));
+    reader->pos += sizeof(int);
+    return val;
+}
+
+unsigned int packet_read_uint(packet_reader *reader) {
+    unsigned int val = 0;
+    memcpy(&val, &reader->data[reader->pos], sizeof(unsigned int));
+    reader->pos += sizeof(unsigned int);
+    return val;
+}
+
+float packet_read_float(packet_reader *reader) {
+    float val = 0;
+    memcpy(&val, &reader->data[reader->pos], sizeof(float));
+    reader->pos += sizeof(float);
+    return val;
+}
+
+bool packet_read_bool(packet_reader *reader) {
+    bool val = 0;
+    memcpy(&val, &reader->data[reader->pos], sizeof(bool));
+    reader->pos += sizeof(bool);
+    return val;
+}
+
+void send_packet(client_t *client, packet_writer *writer, int packet_flag) {
+    ENetPacket *packet =
+        enet_packet_create(writer->data, writer->size, packet_flag);
+    enet_peer_send(client->peer, 0, packet);
+}
+
+void broadcast_packet(server_t *server, packet_writer *writer,
+                      int packet_flag) {
+    ENetPacket *packet =
+        enet_packet_create(writer->data, writer->size, packet_flag);
+    enet_host_broadcast(server->server, 0, packet);
+}
+#endif
+
+// }}}
 
 // }}}
 
