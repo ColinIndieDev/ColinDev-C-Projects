@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-string *str_create(const char *cstr) {
+string *string_create(const char *cstr) {
     string *str = malloc(sizeof(string));
     if (cstr && strlen(cstr) > 0) {
         str->size = strlen(cstr);
@@ -20,7 +20,7 @@ string *str_create(const char *cstr) {
     return str;
 }
 
-string *str_create_fmt(const char *fmt, ...) {
+string *string_create_fmt(const char *fmt, ...) {
     string *str = malloc(sizeof(string));
     char buffer[1024];
     if (fmt) {
@@ -42,7 +42,7 @@ string *str_create_fmt(const char *fmt, ...) {
     return str;
 }
 
-void str_destroy(string *str) {
+void string_destroy(string *str) {
     assert(str);
     if (str->cstr) {
         free(str->cstr);
@@ -50,7 +50,7 @@ void str_destroy(string *str) {
     free(str);
 }
 
-void str_cpy(string *dest, string *src) {
+void string_cpy(string *dest, string *src) {
     assert(src);
     assert(dest);
     assert(src->cstr);
@@ -62,7 +62,7 @@ void str_cpy(string *dest, string *src) {
     dest->size = src->size;
 }
 
-void str_cset(string *str, size_t i, char c) {
+void string_cset(string *str, size_t i, char c) {
     assert(str);
     if (!str->cstr) {
         return;
@@ -72,11 +72,37 @@ void str_cset(string *str, size_t i, char c) {
     str->cstr[i] = c;
 }
 
-char str_cget(string *str, size_t i) {
+char string_cget(string *str, size_t i) {
     assert(str);
     if (!str->cstr) {
         return '\0';
     }
     assert(0 <= i && i < str->size);
     return str->cstr[i];
+}
+
+int string_cmp(string *a, string *b) {
+    assert(a);
+    assert(b);
+    if (!a && !b) {
+        return 1;
+    }
+    if (a && b) {
+        if (a->size == b->size) {
+            for (size_t i = 0; i < a->size; i++) {
+                if (a->cstr[i] != b->cstr[i]) {
+                    return 0;
+                }
+            }
+            return 1;
+        }
+        return 0;
+    }
+    return 0;
+}
+
+void string_view_create(string_view *view, const char *cstr) {
+    (void)view;
+    (void)cstr;
+    assert(0 && "string_view_create() not implemented yet");
 }

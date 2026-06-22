@@ -7,19 +7,26 @@ typedef struct {
     size_t size;
 } string;
 
-#define STR_FMT "%.*s"
-#define STR_ARG(str) (int)(str)->size, (str)->cstr
+#define STRING_FMT "%.*s"
+#define STRING_ARG(str) (int)(str)->size, (str)->cstr
 
-#define STRING_INITIALIZER str_create("")
+#define STRING_INITIALIZER string_create("")
 
-#define str_cstr(str) ((str)->cstr)
-#define str_size(str) ((str)->size)
+#define string_cstr(str) ((str)->cstr)
+#define string_size(str) ((str)->size)
 
-string *str_create(const char *cstr);
-string *str_create_fmt(const char *fmt, ...);
-void str_destroy(string *str);
-void str_cpy(string *dest, string *src);
-void str_cset(string *str, size_t i, char c);
-char str_cget(string *str, size_t i);
-int str_cmp(string *a, string *b);
-void str_fmt(string *str, const char *fmt, ...);
+string *string_create(const char *cstr);
+string *string_create_fmt(const char *fmt, ...);
+void string_destroy(string *str);
+void string_cpy(string *dest, string *src);
+void string_cset(string *str, size_t i, char c);
+char string_cget(string *str, size_t i);
+int string_cmp(string *a, string *b);
+void string_fmt(string *str, const char *fmt, ...);
+
+typedef struct {
+    const char *cstr;
+    size_t size;
+} string_view;
+
+void string_view_create(string_view *view, const char *cstr);

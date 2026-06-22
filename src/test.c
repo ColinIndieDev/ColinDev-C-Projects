@@ -8,10 +8,16 @@
 int main(void) {
     string *s1 = STRING_INITIALIZER;
     const char *msg = "World";
-    string *s2 = str_create_fmt("%s, %s!", "Hello", msg);
+    string *s2 = string_create_fmt("%s, %s!", "Hello", msg);
 
-    str_cpy(s1, s2);
+    string_cpy(s1, s2);
+    string_destroy(s2);
+    s2 = string_create("Hallo, World!");
 
-    printf("%c\n", str_cget(s1, 12));
-    printf(STR_FMT"\n", STR_ARG(s1));
+    if (string_cmp(s1, s2)) {
+        printf("Equal\n");
+    }
+
+    printf("%c\n", string_cget(s1, 12));
+    printf(STRING_FMT"\n", STRING_ARG(s1));
 }
