@@ -27,7 +27,7 @@ endif()
 #### Dev ####
 
 if (CMAKE_BUILD_TYPE STREQUAL "Dev")
-    add_compile_options(-g -O2 -DNDEBUG)
+    add_compile_options(-g -O2 -fno-omit-frame-pointer -U NDEBUG)
 endif()
 
 #### Release ####
@@ -125,9 +125,12 @@ endforeach()
 message(STATUS "============================================")
 
 add_executable(${CMAKE_PROJECT_NAME}
-    cpstd/cphash.c
-    cpstd/cpvec.c
-    cpstd/cpbitarr.c
+    cpstd/hashmap.c
+    cpstd/vector.c
+    cpstd/bitarr.c
+    cpstd/rand.c
+    cpstd/queue.c
+    cpstd/strings.c
 
     src/test.c
     ${SOURCE_FILES}

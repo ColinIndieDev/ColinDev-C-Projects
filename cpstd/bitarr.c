@@ -1,4 +1,4 @@
-#include "cpbitarr.h"
+#include "bitarr.h"
 
 #include <assert.h>
 #include <stdint.h>

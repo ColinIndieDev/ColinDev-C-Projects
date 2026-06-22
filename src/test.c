@@ -1,19 +1,17 @@
-#include "../cpstd/cpvec.h"
+#include "../cpstd/rand.h"
+#include "../cpstd/vector.h"
+#include "../cpstd/strings.h"
 
+#include <stdint.h>
 #include <stdio.h>
 
-#define LEN 10
-
 int main(void) {
-    int *arr = vec_init(arr, 10);
+    string *s1 = STRING_INITIALIZER;
+    const char *msg = "World";
+    string *s2 = str_create_fmt("%s, %s!", "Hello", msg);
 
-    for (int i = 0; i < 6; i++) {
-        vec_push(arr, i * i);
-    }
+    str_cpy(s1, s2);
 
-    foreach_vec(it, arr) {
-       printf("%d ", *it);
-    }
-
-    vec_destroy(arr);
+    printf("%c\n", str_cget(s1, 12));
+    printf(STR_FMT"\n", STR_ARG(s1));
 }

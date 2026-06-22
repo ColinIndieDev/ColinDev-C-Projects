@@ -1,4 +1,4 @@
-#include "cpqueue_new.h"
+#include "queue.h"
 
 #include <assert.h>
 #include <stdlib.h>

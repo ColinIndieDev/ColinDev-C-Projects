@@ -1,4 +1,4 @@
-#include "cphash.h"
+#include "hashmap.h"
 
 #include <assert.h>
 #include <stdint.h>
