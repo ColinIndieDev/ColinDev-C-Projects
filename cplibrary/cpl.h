@@ -17,7 +17,6 @@
 #include <unistd.h>
 
 #ifdef CPL_IMPLEMENTATION
-#define CPM_IMPL
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define MINIAUDIO_IMPLEMENTATION
@@ -36,8 +35,9 @@
 #include <enet.h>
 #include <miniaudio.h>
 
-#include "../cpstd/cpmath.h"
-#include "../cpstd/cpvec.h"
+#include "../cpstd/mathplus.h"
+#include "../cpstd/vector.h"
+#include "../cpstd/arena.h"
 
 // {{{ Key Inputs
 
@@ -299,12 +299,12 @@ static void screenshot(char *path, vec2f screen) {
     int w = (int)screen.x;
     int h = (int)screen.y;
     int s = w * 3;
-    u8 pixels[w * h * 3];
+    uint8_t pixels[w * h * 3];
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixels);
     for (int y = 0; y < h / 2; y++) {
         for (int x = 0; x < s; x++) {
-            u8 tmp = pixels[(y * s) + x];
+            uint8_t tmp = pixels[(y * s) + x];
             pixels[(y * s) + x] = pixels[((h - 1 - y) * s) + x];
             pixels[((h - 1 - y) * s) + x] = tmp;
         }
@@ -364,7 +364,7 @@ static unsigned int get_stack_used() {
 #ifndef __EMSCRIPTEN__
     pthread_attr_t attr;
     pthread_getattr_np(pthread_self(), &attr);
-    void *base = NULLPTR;
+    void *base = NULL;
     size_t size = 0;
     pthread_attr_getstack(&attr, &base, &size);
     pthread_attr_destroy(&attr);
@@ -527,9 +527,9 @@ static void enable_opengl_debug() {
 
         glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-        glDebugMessageCallback(_gl_debug_out, NULLPTR);
+        glDebugMessageCallback(_gl_debug_out, NULL);
         glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0,
-                              NULLPTR, GL_TRUE);
+                              NULL, GL_TRUE);
     }
 }
 
@@ -548,7 +548,7 @@ static bool _check_shader_compile_errors(unsigned int shader, char *type) {
     if (strcmp(type, "PROGRAM") == 0) {
         glGetProgramiv(shader, GL_LINK_STATUS, &success);
         if (!success) {
-            glGetProgramInfoLog(shader, 1024, NULLPTR, info_cpl_log);
+            glGetProgramInfoLog(shader, 1024, NULL, info_cpl_log);
             cpl_log(LOG_ERR, "[CPL] [ERROR] Program linking error:\n%s\n",
                     info_cpl_log);
             return false;
@@ -556,7 +556,7 @@ static bool _check_shader_compile_errors(unsigned int shader, char *type) {
     } else {
         glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
         if (!success) {
-            glGetShaderInfoLog(shader, 1024, NULLPTR, info_cpl_log);
+            glGetShaderInfoLog(shader, 1024, NULL, info_cpl_log);
             cpl_log(LOG_ERR, "[CPL] [ERROR] Shader compilation error: %s\n%s\n",
                     type, info_cpl_log);
             return false;
@@ -568,7 +568,7 @@ static bool _check_shader_compile_errors(unsigned int shader, char *type) {
 static char *_read_shader_file(char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) {
-        return NULLPTR;
+        return NULL;
     }
 
     fseek(f, 0, SEEK_END);
@@ -578,7 +578,7 @@ static char *_read_shader_file(char *path) {
     char *buffer = malloc(size + 1);
     if (!buffer) {
         fclose(f);
-        return NULLPTR;
+        return NULL;
     }
 
     unsigned int read = fread(buffer, 1, size, f);
@@ -586,7 +586,7 @@ static char *_read_shader_file(char *path) {
 
     if (read != size) {
         free(buffer);
-        return NULLPTR;
+        return NULL;
     }
 
     buffer[size] = '\0';
@@ -600,11 +600,11 @@ static void create_shader(shader *s, char *vert_path, char *frag_path) {
     unsigned int vert = 0;
     unsigned int frag = 0;
     vert = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vert, 1, (const GLchar *const *)&vert_code, NULLPTR);
+    glShaderSource(vert, 1, (const GLchar *const *)&vert_code, NULL);
     glCompileShader(vert);
     _check_shader_compile_errors(vert, "VERTEX");
     frag = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(frag, 1, (const GLchar *const *)&frag_code, NULLPTR);
+    glShaderSource(frag, 1, (const GLchar *const *)&frag_code, NULL);
     glCompileShader(frag);
     _check_shader_compile_errors(frag, "FRAGMENT");
     s->id = glCreateProgram();
@@ -691,7 +691,7 @@ static void create_rect(rect *r, vec2f pos, vec2f size, vec4f color,
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices,
                  GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
-                          (void *)NULLPTR);
+                          (void *)NULL);
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -716,18 +716,18 @@ static void draw_rect_raw(shader *s, rect *r) {
     mat4f transform;
     mat4f_identity(&transform);
 
-    mat4f_translate(&transform, &(vec3f){r->pos.x, r->pos.y, 0.0f});
+    mat4f_translate(&transform, (vec3f){r->pos.x, r->pos.y, 0.0f});
     mat4f_translate(&transform,
-                    &(vec3f){r->size.x * 0.5f, r->size.y * 0.5f, 0.0f});
-    mat4f_rotate(&transform, cpm_rad(r->rot), &(vec3f){0.0f, 0.0f, 1.0f});
+                    (vec3f){r->size.x * 0.5f, r->size.y * 0.5f, 0.0f});
+    mat4f_rotate(&transform, math_rad(r->rot), (vec3f){0.0f, 0.0f, 1.0f});
     mat4f_translate(&transform,
-                    &(vec3f){-r->size.x * 0.5f, -r->size.y * 0.5f, 0.0f});
+                    (vec3f){-r->size.x * 0.5f, -r->size.y * 0.5f, 0.0f});
 
     shader_set_mat4f(s, "transform", transform);
     shader_set_rgba(s, "input_color", r->color);
 
     glBindVertexArray(r->vao);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULLPTR);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL);
     glBindVertexArray(0);
 }
 
@@ -762,7 +762,7 @@ static void create_triangle(triangle *t, vec2f pos, vec2f size, vec4f color,
     glBindBuffer(GL_ARRAY_BUFFER, t->vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
-                          (void *)NULLPTR);
+                          (void *)NULL);
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -783,12 +783,12 @@ static void draw_triangle_raw(shader *s, triangle *t) {
     mat4f transform;
     mat4f_identity(&transform);
 
-    mat4f_translate(&transform, &(vec3f){t->pos.x, t->pos.y, 0.0f});
+    mat4f_translate(&transform, (vec3f){t->pos.x, t->pos.y, 0.0f});
     mat4f_translate(&transform,
-                    &(vec3f){t->size.x * 0.5f, t->size.y * 0.5f, 0.0f});
-    mat4f_rotate(&transform, cpm_rad(t->rot), &(vec3f){0.0f, 0.0f, 1.0f});
+                    (vec3f){t->size.x * 0.5f, t->size.y * 0.5f, 0.0f});
+    mat4f_rotate(&transform, math_rad(t->rot), (vec3f){0.0f, 0.0f, 1.0f});
     mat4f_translate(&transform,
-                    &(vec3f){-t->size.x * 0.5f, -t->size.y * 0.5f, 0.0f});
+                    (vec3f){-t->size.x * 0.5f, -t->size.y * 0.5f, 0.0f});
 
     shader_set_mat4f(s, "transform", transform);
     shader_set_rgba(s, "input_color", t->color);
@@ -815,17 +815,17 @@ static void create_circle(circle *c, vec2f pos, float radius, vec4f color) {
     c->color = color;
     c->radius = radius;
 
-    int segments = CPM_MIN(32, (int)cpm_ceilf(2.0f * CPM_PI * radius / 2.0f));
-    u64 vertices_size = ((u64)(segments + 1) * 3) + 3;
+    int segments = math_min(32, (int)ceilf(2.0f * MATH_PI * radius / 2.0f));
+    size_t vertices_size = ((size_t)(segments + 1) * 3) + 3;
     float *vertices = malloc(vertices_size * sizeof(float));
     for (unsigned int i = 0; i < 3; i++) {
         vertices[i] = 0;
     }
     for (unsigned int i = 0; i <= segments; i++) {
-        float theta = 2 * CPM_PI / (float)segments * (float)i;
-        float x = 0.0f + (radius * cpm_cosf(theta));
-        float y = 0.0f + (radius * cpm_sinf(theta));
-        vertices[(u64)(i + 1) * 3] = x;
+        float theta = 2 * (float)MATH_PI / (float)segments * (float)i;
+        float x = 0.0f + (radius * cosf(theta));
+        float y = 0.0f + (radius * sinf(theta));
+        vertices[(size_t)(i + 1) * 3] = x;
         vertices[((i + 1) * 3) + 1] = y;
         vertices[((i + 1) * 3) + 2] = 0.0f;
     }
@@ -837,7 +837,7 @@ static void create_circle(circle *c, vec2f pos, float radius, vec4f color) {
     glBufferData(GL_ARRAY_BUFFER, (int)(vertices_size * sizeof(float)),
                  vertices, GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
-                          (void *)NULLPTR);
+                          (void *)NULL);
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -858,7 +858,7 @@ static void destroy_circle(circle *c) {
 static void draw_circle_raw(shader *s, circle *c) {
     mat4f transform;
     mat4f_identity(&transform);
-    mat4f_translate(&transform, &(vec3f){c->pos.x, c->pos.y, 0.0f});
+    mat4f_translate(&transform, (vec3f){c->pos.x, c->pos.y, 0.0f});
 
     shader_set_mat4f(s, "transform", transform);
     shader_set_rgba(s, "input_color", c->color);
@@ -894,7 +894,7 @@ static void create_line(line *l, vec2f start, vec2f end, vec4f color) {
     glBindBuffer(GL_ARRAY_BUFFER, l->vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
-                          (void *)NULLPTR);
+                          (void *)NULL);
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -913,7 +913,7 @@ static void destroy_line(line *l) {
 static void draw_line_raw(shader *s, line *l) {
     mat4f transform;
     mat4f_identity(&transform);
-    mat4f_translate(&transform, &(vec3f){0.0f, 0.0f, 0.0f});
+    mat4f_translate(&transform, (vec3f){0.0f, 0.0f, 0.0f});
 
     shader_set_mat4f(s, "transform", transform);
     shader_set_rgba(s, "input_color", l->color);
@@ -954,7 +954,7 @@ static void load_texture(texture *t, char *path, texture_filtering filter) {
     int width = 0;
     int height = 0;
     int channels = 0;
-    u8 *data = stbi_load(path, &width, &height, &channels, 0);
+    uint8_t *data = stbi_load(path, &width, &height, &channels, 0);
     GLenum format = 0;
     if (channels == 1) {
         format = GL_RED;
@@ -1011,7 +1011,7 @@ static void create_texture2D(texture2D *t, vec2f pos, vec2f size, float rot,
                  GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
-                          (void *)NULLPTR);
+                          (void *)NULL);
     glEnableVertexAttribArray(0);
 
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
@@ -1035,19 +1035,19 @@ static void destroy_texture2D(texture2D *t) {
         glDeleteBuffers(1, &t->ebo);
         t->ebo = 0;
     }
-    t->tex = NULLPTR;
+    t->tex = NULL;
 }
 
 static void draw_texture2D_raw(shader *s, texture2D *t) {
     mat4f transform;
     mat4f_identity(&transform);
 
-    mat4f_translate(&transform, &(vec3f){t->pos.x, t->pos.y, 0.0f});
+    mat4f_translate(&transform, (vec3f){t->pos.x, t->pos.y, 0.0f});
     mat4f_translate(&transform,
-                    &(vec3f){t->size.x * 0.5f, t->size.y * 0.5f, 0.0f});
-    mat4f_rotate(&transform, cpm_rad(t->rot), &(vec3f){0.0f, 0.0f, 1.0f});
+                    (vec3f){t->size.x * 0.5f, t->size.y * 0.5f, 0.0f});
+    mat4f_rotate(&transform, math_rad(t->rot), (vec3f){0.0f, 0.0f, 1.0f});
     mat4f_translate(&transform,
-                    &(vec3f){-t->size.x * 0.5f, -t->size.y * 0.5f, 0.0f});
+                    (vec3f){-t->size.x * 0.5f, -t->size.y * 0.5f, 0.0f});
 
     shader_set_int(s, "tex", 0);
     shader_set_mat4f(s, "transform", transform);
@@ -1056,7 +1056,7 @@ static void draw_texture2D_raw(shader *s, texture2D *t) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, t->tex->id);
     glBindVertexArray(t->vao);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULLPTR);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL);
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
@@ -1100,7 +1100,7 @@ static void create_font(font *f, char *path, char *name,
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     f->letters = vec_init(f->letters, 128);
-    for (u8 c = 0; c < 128; c++) {
+    for (uint8_t c = 0; c < 128; c++) {
         if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
             cpl_log(LOG_ERR, "Failed to load Glyph");
             continue;
@@ -1138,10 +1138,10 @@ static void create_font(font *f, char *path, char *name,
     glGenBuffers(1, &f->vbo);
     glBindVertexArray(f->vao);
     glBindBuffer(GL_ARRAY_BUFFER, f->vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULLPTR,
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL,
                  GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULLPTR);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
@@ -1175,7 +1175,7 @@ static void draw_text_raw(shader *s, font *f, char *text, vec2f pos,
 
         float x_pos = pos.x + (l->bearing.x * scale);
         float y_pos =
-            pos.y + (f->letters['H'].bearing.y - l->bearing.y) * scale;
+            pos.y + ((f->letters['H'].bearing.y - l->bearing.y) * scale);
         float width = l->size.x * scale;
         float height = l->size.y * scale;
 
@@ -1210,8 +1210,8 @@ static vec2f get_text_size(font *f, char *text, float scale) {
 
         letter *l = &f->letters[text[i]];
         float h = l->size.y * scale;
-        max_above_base = CPM_MAX(max_above_base, l->bearing.y * scale);
-        max_below_base = CPM_MAX(max_below_base, (h - (l->bearing.y * scale)));
+        max_above_base = math_max(max_above_base, l->bearing.y * scale);
+        max_below_base = math_max(max_below_base, (h - (l->bearing.y * scale)));
         width += (float)(l->advance >> 6) * scale;
     }
     height = max_above_base + max_below_base;
@@ -1235,14 +1235,14 @@ static unsigned int _active_sounds_size;
 static unsigned int _active_sounds_cap;
 
 static void audio_init() {
-    if (ma_engine_init(NULLPTR, &_audio_engine) != MA_SUCCESS) {
+    if (ma_engine_init(NULL, &_audio_engine) != MA_SUCCESS) {
         cpl_log(LOG_ERR, "Failed to init audio!");
         exit(-1);
     }
     _active_sounds_cap = 16;
     _active_sounds_size = 0;
     _active_sounds = malloc(_active_sounds_cap * sizeof(ma_sound *));
-    _music = NULLPTR;
+    _music = NULL;
 }
 
 static audio load_audio(char *path) { return (audio){path, 1.0f, 1.0f}; }
@@ -1263,7 +1263,7 @@ static void audio_update() {
 static void audio_play_sound(audio *a) {
     ma_sound *sound = malloc(sizeof(ma_sound));
     if (ma_sound_init_from_file(&_audio_engine, a->path, MA_SOUND_FLAG_DECODE,
-                                NULLPTR, NULLPTR, sound) != MA_SUCCESS) {
+                                NULL, NULL, sound) != MA_SUCCESS) {
         cpl_log(LOG_ERR, "Failed to init sound!");
         free(sound);
         return;
@@ -1291,14 +1291,14 @@ static void audio_play_music(audio *a) {
         ma_sound_stop(_music);
         ma_sound_uninit(_music);
         free(_music);
-        _music = NULLPTR;
+        _music = NULL;
     }
     _music = malloc(sizeof(ma_sound));
     if (ma_sound_init_from_file(&_audio_engine, a->path, MA_SOUND_FLAG_DECODE,
-                                NULLPTR, NULLPTR, _music) != MA_SUCCESS) {
+                                NULL, NULL, _music) != MA_SUCCESS) {
         cpl_log(LOG_ERR, "Failed to load music!");
         free(_music);
-        _music = NULLPTR;
+        _music = NULL;
         return;
     }
     ma_sound_set_pitch(_music, a->pitch);
@@ -1361,7 +1361,7 @@ static void create_screen_quad(screen_quad *q, int width, int height) {
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
-                          (void *)NULLPTR);
+                          (void *)NULL);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
                           (void *)(3 * sizeof(float)));
@@ -1372,7 +1372,7 @@ static void create_screen_quad(screen_quad *q, int width, int height) {
     glGenTextures(1, &q->tex_color_buffer);
     glBindTexture(GL_TEXTURE_2D, q->tex_color_buffer);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (int)q->size.x, (int)q->size.y, 0,
-                 GL_RGB, GL_UNSIGNED_BYTE, NULLPTR);
+                 GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
@@ -1397,7 +1397,7 @@ static void screen_quad_resize(screen_quad *q, int width, int height) {
 
     glBindTexture(GL_TEXTURE_2D, q->tex_color_buffer);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
-                 GL_UNSIGNED_BYTE, NULLPTR);
+                 GL_UNSIGNED_BYTE, NULL);
 
     glBindRenderbuffer(GL_RENDERBUFFER, q->rbo);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
@@ -1451,15 +1451,15 @@ static bool check_collision_rects(rect_collider a, rect_collider b) {
 static bool check_collision_circle_rect(circle_collider a, rect_collider b) {
     vec2f circle_center = a.pos;
     vec2f rect_center =
-        vec2f_add(&b.pos, &VEC2F(b.size.x * 0.5f, b.size.y * 0.5f));
+        vec2f_add(b.pos, VEC2F(b.size.x * 0.5f, b.size.y * 0.5f));
     vec2f half_extents = VEC2F(b.size.x * 0.5f, b.size.y * 0.5f);
-    vec2f difference = vec2f_sub(&circle_center, &rect_center);
+    vec2f difference = vec2f_sub(circle_center, rect_center);
     vec2f clamped = vec2f_clamp(
-        &difference, &VEC2F(-half_extents.x, -half_extents.y), &half_extents);
-    vec2f closest = vec2f_add(&rect_center, &clamped);
-    vec2f delta = vec2f_sub(&closest, &circle_center);
+        difference, VEC2F(-half_extents.x, -half_extents.y), half_extents);
+    vec2f closest = vec2f_add(rect_center, clamped);
+    vec2f delta = vec2f_sub(closest, circle_center);
 
-    return vec2f_length(&delta) <= a.radius;
+    return vec2f_length(delta) <= a.radius;
 }
 
 static bool check_collision_vec2f_rect(vec2f a, rect_collider b) {
@@ -1468,14 +1468,14 @@ static bool check_collision_vec2f_rect(vec2f a, rect_collider b) {
 }
 
 static bool check_collision_circles(circle_collider a, circle_collider b) {
-    vec2f dist = vec2f_sub(&a.pos, &b.pos);
+    vec2f dist = vec2f_sub(a.pos, b.pos);
     float distance2 = (dist.x * dist.x) + (dist.y * dist.y);
     float radius_sum = a.radius + b.radius;
     return distance2 <= radius_sum * radius_sum;
 }
 
 static bool check_collision_vec2f_circle(vec2f a, circle_collider b) {
-    vec2f dist = vec2f_sub(&a, &b.pos);
+    vec2f dist = vec2f_sub(a, b.pos);
     float distance2 = (dist.x * dist.x) + (dist.y * dist.y);
     return distance2 <= b.radius * b.radius;
 }
@@ -1500,8 +1500,8 @@ static float get_time() {
         initialized = true;
     }
     clock_gettime(CLOCK_MONOTONIC, &cur_ts);
-    return (float)((f64)(cur_ts.tv_sec - start_ts.tv_sec) +
-                   ((f64)(cur_ts.tv_nsec - start_ts.tv_nsec) * 1e-9));
+    return (float)((double)(cur_ts.tv_sec - start_ts.tv_sec) +
+                   ((double)(cur_ts.tv_nsec - start_ts.tv_nsec) * 1e-9));
 }
 
 static void calc_fps() {
@@ -1536,7 +1536,7 @@ typedef struct {
     float rot;
 } cam_2D;
 
-static GLFWwindow *_window = NULLPTR;
+static GLFWwindow *_window = NULL;
 static cam_2D _cam_2D;
 
 static bool _key_states[KEY_LAST - KEY_SPACE + 1];
@@ -1588,15 +1588,15 @@ static mat4f *cam_2D_get_view_mat(cam_2D *cam) {
     mat4f *view = malloc(sizeof(mat4f));
     mat4f_identity(view);
 
-    mat4f_translate(view, &(vec3f){-cam->pos.x, -cam->pos.y, 0.0f});
+    mat4f_translate(view, (vec3f){-cam->pos.x, -cam->pos.y, 0.0f});
 
-    mat4f_translate(view, &(vec3f){cam->pos.x, cam->pos.y, 0.0f});
-    mat4f_rotate(view, cpm_rad(cam->rot), &(vec3f){0.0f, 0.0f, 1.0f});
-    mat4f_translate(view, &(vec3f){-cam->pos.x, -cam->pos.y, 0.0f});
+    mat4f_translate(view, (vec3f){cam->pos.x, cam->pos.y, 0.0f});
+    mat4f_rotate(view, math_rad(cam->rot), (vec3f){0.0f, 0.0f, 1.0f});
+    mat4f_translate(view, (vec3f){-cam->pos.x, -cam->pos.y, 0.0f});
 
-    mat4f_translate(view, &(vec3f){cam->pos.x, cam->pos.y, 0.0f});
-    mat4f_scale(view, &(vec3f){cam->zoom, cam->zoom, 1.0f});
-    mat4f_translate(view, &(vec3f){-cam->pos.x, -cam->pos.y, 0.0f});
+    mat4f_translate(view, (vec3f){cam->pos.x, cam->pos.y, 0.0f});
+    mat4f_scale(view, (vec3f){cam->zoom, cam->zoom, 1.0f});
+    mat4f_translate(view, (vec3f){-cam->pos.x, -cam->pos.y, 0.0f});
 
     return view;
 }
@@ -1604,8 +1604,8 @@ static mat4f *cam_2D_get_view_mat(cam_2D *cam) {
 static cam_2D *get_cam_2D() { return &_cam_2D; }
 
 static vec2f get_mouse_pos() {
-    f64 x = 0;
-    f64 y = 0;
+    double x = 0;
+    double y = 0;
     glfwGetCursorPos(_window, &x, &y);
     return VEC2F((float)x, (float)y);
 }
@@ -1723,7 +1723,7 @@ static void init_window(unsigned int width, unsigned int height, char *title,
     _screen_height = height;
 
     _window =
-        glfwCreateWindow((int)width, (int)height, title, NULLPTR, NULLPTR);
+        glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
     if (!_window) {
         cpl_log(LOG_ERR, "[CPL] [ERROR] Failed to create window");
         glfwTerminate();
@@ -1872,15 +1872,15 @@ static void display_details(font *font) {
     snprintf(renderer_str, 50, "Renderer: %s", _renderer);
     snprintf(vendor_str, 50, "Vendor: %s", _vendor);
     snprintf(fps, 15, "FPS: %d", get_fps());
-    snprintf(stack_used, 50, "Stack used: %.3f / %.3f MB (%f%%)",
-             MB((float)get_stack_used()), MB((float)get_stack_size()),
+    snprintf(stack_used, 50, "Stack used: %.3f / %.3f MiB (%f%%)",
+             MiB((float)get_stack_used()), MiB((float)get_stack_size()),
              (float)get_stack_used() / (float)get_stack_size());
     snprintf(heap_total, 50, "Heap size: %d MB",
-             (int)MB((float)get_heap_size()));
+             (int)MiB((float)get_heap_size()));
     snprintf(heap_used, 50, "Heap used: %d MB",
-             (int)MB((float)get_heap_used()));
+             (int)MiB((float)get_heap_used()));
     snprintf(heap_free, 50, "Heap free: %d MB",
-             (int)MB((float)get_heap_free()));
+             (int)MiB((float)get_heap_free()));
 
     draw_text(font, version_str, VEC2F(10.0f, 10.0f), 0.5f, WHITE);
     draw_text(font, renderer_str, VEC2F(10.0f, 40.0f), 0.5f, WHITE);
@@ -2225,8 +2225,8 @@ static void destroy_particle_system(particle_system *ps) {
 static void update_particle_system(particle_system *ps) {
     foreach_vec(p, ps->particles) {
         p->cur_life_time += get_dt();
-        p->pos = vec2f_add(&VEC2F(p->dir.x * get_dt(), p->dir.y * get_dt()),
-                           &p->pos);
+        p->pos = vec2f_add(VEC2F(p->dir.x * get_dt(), p->dir.y * get_dt()),
+                           p->pos);
         if (p->cur_life_time >= p->life_time) {
             p->active = false;
         }
@@ -2281,10 +2281,10 @@ static void end_shadow_cast_2D(float ambient, float shadow_strength,
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glStencilFunc(GL_EQUAL, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-    float shadow_alpha = CPM_CLAMP(shadow_strength - ambient, 0, 1);
+    float shadow_alpha = math_clamp(shadow_strength - ambient, 0, 1);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     begin_draw(SHAPE_2D_UNLIT, false);
-    draw_rect(VEC2F_INIT(0), get_screen_size(),
+    draw_rect(VEC2F(0, 0), get_screen_size(),
               RGBA(shadow_color.r, shadow_color.g, shadow_color.b,
                    255 * shadow_alpha),
               0);
@@ -2351,11 +2351,11 @@ static void draw_rect_shadow(vec2f pos, vec2f size, point_light_2D *lights,
                 continue;
             }
             vec2f dir_a = {a.x - lights[l].pos.x, a.y - lights[l].pos.y};
-            float len_a = cpm_sqrt((dir_a.x * dir_a.x) + (dir_a.y * dir_a.y));
+            float len_a = sqrtf((dir_a.x * dir_a.x) + (dir_a.y * dir_a.y));
             dir_a.x /= len_a;
             dir_a.y /= len_a;
             vec2f dir_b = {b.x - lights[l].pos.x, b.y - lights[l].pos.y};
-            float len_b = cpm_sqrt((dir_b.x * dir_b.x) + (dir_b.y * dir_b.y));
+            float len_b = sqrtf((dir_b.x * dir_b.x) + (dir_b.y * dir_b.y));
             dir_b.x /= len_b;
             dir_b.y /= len_b;
             vec2f a2 = {a.x + (dir_a.x * far), a.y + (dir_a.y * far)};
@@ -2387,8 +2387,8 @@ static void draw_shadows(point_light_2D *lights, unsigned int light_count,
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
     begin_draw(SHAPE_2D_UNLIT, false);
-    draw_rect(VEC2F_INIT(0), get_screen_size(),
-              RGBA(0, 0, 0, (u8)(255 * shadow_strength)), 0);
+    draw_rect(VEC2F(0, 0), get_screen_size(),
+              RGBA(0, 0, 0, (uint8_t)(255 * shadow_strength)), 0);
 
     glDisable(GL_STENCIL_TEST);
     _rect_shadow_count = 0;
@@ -2436,7 +2436,7 @@ static void hdr_quad_resize(hdr *h, int width, int height) {
 
     glBindTexture(GL_TEXTURE_2D, h->color_buffer);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
-                 GL_UNSIGNED_BYTE, NULLPTR);
+                 GL_UNSIGNED_BYTE, NULL);
 
     glBindRenderbuffer(GL_RENDERBUFFER, h->rbo_depth);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);

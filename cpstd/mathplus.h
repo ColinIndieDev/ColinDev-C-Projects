@@ -10,6 +10,8 @@
 #define math_abs(x) ((x) > 0 ? (x) : -(x))
 #define math_clamp(x, n, m) ((x) > (n) ? ((x) < (m) ? (x) : (m)) : (n))
 
+float math_rad(float deg);
+
 typedef union {
     float data[4];
     struct {
@@ -56,9 +58,9 @@ typedef struct {
 } mat4f;
 
 void mat4f_identity(mat4f *m);
-void mat4f_translate(mat4f *m, vec3f *v);
-void mat4f_rotate(mat4f *m, float angle_rad, vec3f *axis);
-void mat4f_scale(mat4f *m, vec3f *v);
+void mat4f_translate(mat4f *m, vec3f v);
+void mat4f_rotate(mat4f *m, float angle_rad, vec3f axis);
+void mat4f_scale(mat4f *m, vec3f v);
 vec4f mat4f_mul_vec4f(mat4f *m, vec4f v);
 void mat4f_mul(mat4f *a, mat4f *b, mat4f *dest);
 void mat4f_ortho(mat4f *m, float left, float right, float bottom, float top,

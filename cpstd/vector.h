@@ -16,6 +16,7 @@ typedef struct {
 #define vec_init(arr, capacity) vec_init_impl(sizeof(*(arr)), capacity)
 void *vec_init_impl(size_t element_size, size_t capacity);
 void vec_destroy(void *arr);
+void vec_clear(void *arr);
 
 #define vec_push(arr, x)                                                       \
     do {                                                                       \

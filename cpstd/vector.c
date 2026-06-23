@@ -19,6 +19,11 @@ void vec_destroy(void *arr) {
     free(header);
 }
 
+void vec_clear(void *arr) {
+    assert(arr);
+    vec_header(arr)->size = 0;
+}
+
 void *vec_push_impl(void *arr, void *val, size_t element_size) {
     assert(arr);
     vec_header_t *header = vec_header(arr);

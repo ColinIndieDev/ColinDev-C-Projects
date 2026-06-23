@@ -1,5 +1,9 @@
 #include <mathplus.h>
 
+float math_rad(float deg) {
+    return deg * (float)(MATH_PI / 180.0);
+}
+
 int vec2f_cmp(vec2f a, vec2f b) { return a.x == b.x && a.y == b.y; }
 
 vec2f vec2f_add(vec2f a, vec2f b) { return (vec2f){a.x + b.x, a.y + b.y}; }
@@ -47,25 +51,25 @@ void mat4f_identity(mat4f *m) {
     }
 }
 
-void mat4f_translate(mat4f *m, vec3f *v) {
-    m->data[3][0] += (m->data[0][0] * v->x) + (m->data[1][0] * v->y) +
-                     (m->data[2][0] * v->z);
-    m->data[3][1] += (m->data[0][1] * v->x) + (m->data[1][1] * v->y) +
-                     (m->data[2][1] * v->z);
-    m->data[3][2] += (m->data[0][2] * v->x) + (m->data[1][2] * v->y) +
-                     (m->data[2][2] * v->z);
-    m->data[3][3] += (m->data[0][3] * v->x) + (m->data[1][3] * v->y) +
-                     (m->data[2][3] * v->z);
+void mat4f_translate(mat4f *m, vec3f v) {
+    m->data[3][0] += (m->data[0][0] * v.x) + (m->data[1][0] * v.y) +
+                     (m->data[2][0] * v.z);
+    m->data[3][1] += (m->data[0][1] * v.x) + (m->data[1][1] * v.y) +
+                     (m->data[2][1] * v.z);
+    m->data[3][2] += (m->data[0][2] * v.x) + (m->data[1][2] * v.y) +
+                     (m->data[2][2] * v.z);
+    m->data[3][3] += (m->data[0][3] * v.x) + (m->data[1][3] * v.y) +
+                     (m->data[2][3] * v.z);
 }
 
-void mat4f_rotate(mat4f *m, float angle_rad, vec3f *axis) {
+void mat4f_rotate(mat4f *m, float angle_rad, vec3f axis) {
     float c = cosf(angle_rad);
     float s = sinf(angle_rad);
     float t = 1.0f - c;
 
-    float x = axis->x;
-    float y = axis->y;
-    float z = axis->z;
+    float x = axis.x;
+    float y = axis.y;
+    float z = axis.z;
 
     mat4f rot;
     mat4f_identity(&rot);
@@ -96,10 +100,10 @@ void mat4f_rotate(mat4f *m, float angle_rad, vec3f *axis) {
     *m = result;
 }
 
-void mat4f_scale(mat4f *m, vec3f *v) {
-    m->data[0][0] *= v->x;
-    m->data[1][1] *= v->y;
-    m->data[2][2] *= v->z;
+void mat4f_scale(mat4f *m, vec3f v) {
+    m->data[0][0] *= v.x;
+    m->data[1][1] *= v.y;
+    m->data[2][2] *= v.z;
 }
 
 vec4f mat4f_mul_vec4f(mat4f *m, vec4f v) {

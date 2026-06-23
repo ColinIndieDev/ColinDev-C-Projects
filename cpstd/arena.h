@@ -15,6 +15,10 @@ typedef struct {
 #define ARENA_BASE_POS (sizeof(mem_arena))
 #define ARENA_ALIGN (sizeof(void *))
 
+#define KiB(b) ((b) * 1024)
+#define MiB(b) ((b) * 1024 * 1024)
+#define GiB(b) ((b) * 1024 * 1024 * 1024)
+
 mem_arena *arena_create(size_t capacity);
 void arena_destroy(mem_arena *arena);
 void *arena_alloc(mem_arena *arena, size_t size);

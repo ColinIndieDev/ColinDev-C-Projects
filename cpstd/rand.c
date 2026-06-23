@@ -34,16 +34,6 @@ float pcg_randfr(pcg_state *rng) {
     return (float)pcg_randr(rng) / (float)UINT32_MAX;
 }
 
-void pcg_seedr(pcg_state *rng, size_t state, size_t seq) {
-    rng->state = 0U;
-    rng->inc = (seq << 1u) | 1u;
-    pcg_randr(rng);
-    rng->state += state;
-    pcg_randr(rng);
-}
-
-void pcg_seed(size_t state, size_t seq) { pcg_seedr(&_rand_state, state, seq); }
-
 unsigned int pcg_rand() { return pcg_randr(&_rand_state); }
 
 float pcg_randf_norm() { return pcg_randfr(&_rand_state); }
