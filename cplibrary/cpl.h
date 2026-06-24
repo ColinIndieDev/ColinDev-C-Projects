@@ -1872,6 +1872,7 @@ static void display_details(font *font) {
     snprintf(renderer_str, 50, "Renderer: %s", _renderer);
     snprintf(vendor_str, 50, "Vendor: %s", _vendor);
     snprintf(fps, 15, "FPS: %d", get_fps());
+    /*
     snprintf(stack_used, 50, "Stack used: %.3f / %.3f MiB (%f%%)",
              MiB((float)get_stack_used()), MiB((float)get_stack_size()),
              (float)get_stack_used() / (float)get_stack_size());
@@ -1881,6 +1882,7 @@ static void display_details(font *font) {
              (int)MiB((float)get_heap_used()));
     snprintf(heap_free, 50, "Heap free: %d MB",
              (int)MiB((float)get_heap_free()));
+    */
 
     draw_text(font, version_str, VEC2F(10.0f, 10.0f), 0.5f, WHITE);
     draw_text(font, renderer_str, VEC2F(10.0f, 40.0f), 0.5f, WHITE);
