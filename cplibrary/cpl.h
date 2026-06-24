@@ -6,7 +6,7 @@
 
 #include <GLFW/glfw3.h>
 
-#include <malloc.h>
+// #include <malloc.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -319,7 +319,7 @@ static void screenshot(char *path, vec2f screen) {
 // }}}
 
 // {{{ Profiler
-
+/*
 static unsigned int get_heap_size() {
 #ifndef __EMSCRIPTEN__
     struct mallinfo2 mi = mallinfo2();
@@ -375,7 +375,7 @@ static unsigned int get_stack_used() {
     return 0;
 #endif
 }
-
+*/
 // }}}
 
 // {{{ OpenGL Debug
