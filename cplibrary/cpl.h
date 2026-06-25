@@ -35,9 +35,9 @@
 #include <enet.h>
 #include <miniaudio.h>
 
+#include "../cpstd/arena.h"
 #include "../cpstd/mathplus.h"
 #include "../cpstd/vector.h"
-#include "../cpstd/arena.h"
 
 // {{{ Key Inputs
 
@@ -528,8 +528,8 @@ static void enable_opengl_debug() {
         glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
         glDebugMessageCallback(_gl_debug_out, NULL);
-        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0,
-                              NULL, GL_TRUE);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL,
+                              GL_TRUE);
     }
 }
 
@@ -1138,8 +1138,7 @@ static void create_font(font *f, char *path, char *name,
     glGenBuffers(1, &f->vbo);
     glBindVertexArray(f->vao);
     glBindBuffer(GL_ARRAY_BUFFER, f->vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL,
-                 GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), NULL);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1220,6 +1219,422 @@ static vec2f get_text_size(font *f, char *text, float scale) {
 
 // }}}
 
+// {{{ Networking
+
+typedef enum {
+    NET_PACKET_RELIABLE = 1,
+    NET_PACKET_UNRELIABLE = 8
+} net_packet_flags;
+
+typedef enum : uint8_t { NET_PACKET_AUDIO_VOICE_MSG = -1 } net_packet_id;
+
+#define NET_SEC(s) ((s) * 1000)
+
+static pthread_mutex_t net_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// {{{ Client
+
+typedef struct {
+    ENetHost *client;
+    ENetAddress address;
+    ENetEvent event;
+    ENetPeer *peer;
+} client_t;
+
+static bool _net_worker_running = true;
+static ENetHost *_host = NULL;
+static void (*_parse_func)(char *, size_t, void *) = NULL;
+static void *_parse_arg = NULL;
+static pthread_t _net_worker;
+
+static int net_host_service(ENetHost *host, ENetEvent *event,
+                            unsigned int timeout) {
+    pthread_mutex_lock(&net_mutex);
+    int service = enet_host_service(host, event, timeout);
+    pthread_mutex_unlock(&net_mutex);
+    return service;
+}
+
+static void *_net_worker_loop() {
+    while (_net_worker_running) {
+        ENetEvent event;
+        pthread_mutex_lock(&net_mutex);
+        if (enet_host_service(_host, &event, 0) > 0) {
+            if (event.type == ENET_EVENT_TYPE_RECEIVE) {
+                _parse_func((char *)event.packet->data,
+                            event.packet->dataLength, _parse_arg);
+                enet_packet_destroy(event.packet);
+            }
+        }
+
+        while (enet_host_check_events(_host, &event) > 0) {
+            if (event.type == ENET_EVENT_TYPE_RECEIVE) {
+                _parse_func((char *)event.packet->data,
+                            event.packet->dataLength, _parse_arg);
+                enet_packet_destroy(event.packet);
+            }
+        }
+        
+        pthread_mutex_unlock(&net_mutex);
+        
+        struct timespec ts = {0, 500000};
+        nanosleep(&ts, NULL);
+    }
+
+    return NULL;
+}
+
+static void client_create_worker_loop(client_t *client,
+                                      void (*parse_data)(char *, size_t,
+                                                         void *),
+                                      void *parse_data_arg) {
+    _host = client->client;
+    _parse_func = parse_data;
+    _parse_arg = parse_data_arg;
+    pthread_create(&_net_worker, NULL, _net_worker_loop, NULL);
+}
+
+static void client_destroy_worker_loop() {
+    _net_worker_running = false;
+    pthread_join(_net_worker, NULL);
+}
+
+static bool client_create(client_t *client, char *ip, int port, int wait_ms) {
+    if (enet_initialize()) {
+        fprintf(stderr, "Failed to init ENet\n");
+        exit(-1);
+    }
+    atexit(enet_deinitialize);
+
+    client->client = NULL;
+    client->client = enet_host_create(NULL, 1, 1, 0, 0);
+    if (!client) {
+        fprintf(stderr, "Failed to create client host\n");
+        exit(-1);
+    }
+
+    if (!ip) {
+        fprintf(stderr, "IP is invalid\n");
+        exit(-1);
+    }
+
+    enet_address_set_host(&client->address, ip);
+    client->address.port = port;
+
+    client->peer = enet_host_connect(client->client, &client->address, 1, 0);
+    if (!client->peer) {
+        fprintf(stderr, "No peers available for connection\n");
+        exit(-1);
+    }
+
+    if (enet_host_service(client->client, &client->event, wait_ms) > 0 &&
+        client->event.type == ENET_EVENT_TYPE_CONNECT) {
+        return true;
+    }
+    enet_peer_reset(client->peer);
+    return false;
+}
+
+static void client_destroy(client_t *client, int wait_ms) {
+    enet_peer_disconnect(client->peer, 0);
+    while (enet_host_service(client->client, &client->event, wait_ms) > 0) {
+        if (client->event.type == ENET_EVENT_TYPE_RECEIVE) {
+            enet_packet_destroy(client->event.packet);
+        } else if (client->event.type == ENET_EVENT_TYPE_DISCONNECT) {
+            break;
+        }
+    }
+}
+
+// }}}
+
+// {{{ Server
+
+typedef struct {
+    ENetHost *server;
+    ENetAddress address;
+} server_t;
+
+static void server_init(server_t *server, int port, struct in6_addr host,
+                        int max_clients) {
+    if (enet_initialize()) {
+        fprintf(stderr, "Failed to init ENet\n");
+        exit(-1);
+    }
+    atexit(enet_deinitialize);
+
+    server->address.host = host;
+    server->address.port = port;
+
+    server->server = enet_host_create(&server->address, max_clients, 1, 0, 0);
+    if (!server) {
+        fprintf(stderr, "Failed to create server host\n");
+        exit(-1);
+    }
+}
+
+static void server_destroy(server_t *server) {
+    enet_host_destroy(server->server);
+}
+
+// }}}
+
+// {{{ Packets
+
+typedef struct {
+    uint8_t data[1024];
+    size_t size;
+} packet_writer;
+
+typedef struct {
+    uint8_t *data;
+    size_t size;
+    size_t capacity;
+} packet_writer_alloced;
+
+typedef struct {
+    uint8_t *data;
+    size_t size;
+    size_t pos;
+} packet_reader;
+
+static void packet_writer_init(packet_writer *writer, uint8_t packet_id) {
+    writer->data[0] = packet_id;
+    writer->size = 1;
+}
+
+static void packet_write_char(packet_writer *writer, char val) {
+    writer->data[writer->size++] = val;
+}
+
+static void packet_write_int(packet_writer *writer, int val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(int));
+    writer->size += sizeof(int);
+}
+
+static void packet_write_uint(packet_writer *writer, unsigned int val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(unsigned int));
+    writer->size += sizeof(unsigned int);
+}
+
+static void packet_write_ulong(packet_writer *writer, unsigned long val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(unsigned long));
+    writer->size += sizeof(unsigned long);
+}
+
+static void packet_write_float(packet_writer *writer, float val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(float));
+    writer->size += sizeof(float);
+}
+
+static void packet_write_double(packet_writer *writer, double val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(double));
+    writer->size += sizeof(double);
+}
+
+static void packet_write_bool(packet_writer *writer, bool val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(bool));
+    writer->size += sizeof(bool);
+}
+
+static void packet_write_array(packet_writer *writer, void *arr,
+                               size_t total_size) {
+    memcpy(&writer->data[writer->size], arr, total_size);
+    writer->size += total_size;
+}
+
+static void _packet_writer_alloced_check_capacity(packet_writer_alloced *writer,
+                                                  size_t additional_bytes) {
+    if (writer->size + additional_bytes > writer->capacity) {
+        while (writer->size + additional_bytes > writer->capacity) {
+            writer->capacity *= 2;
+        }
+        uint8_t *new_data = realloc(writer->data, writer->capacity);
+        if (new_data) {
+            writer->data = new_data;
+        }
+    }
+}
+
+static void packet_writer_alloced_init(packet_writer_alloced *writer,
+                                       uint8_t packet_id) {
+    writer->capacity = 256;
+    writer->size = 1;
+    writer->data = malloc(writer->capacity);
+    writer->data[0] = packet_id;
+}
+
+static void packet_write_char_alloced(packet_writer_alloced *writer, char val) {
+    _packet_writer_alloced_check_capacity(writer, 1);
+    writer->data[writer->size++] = val;
+}
+
+static void packet_write_int_alloced(packet_writer_alloced *writer, int val) {
+    _packet_writer_alloced_check_capacity(writer, sizeof(int));
+    memcpy(&writer->data[writer->size], &val, sizeof(int));
+    writer->size += sizeof(int);
+}
+
+static void packet_write_uint_alloced(packet_writer_alloced *writer,
+                                      unsigned int val) {
+    _packet_writer_alloced_check_capacity(writer, sizeof(unsigned int));
+    memcpy(&writer->data[writer->size], &val, sizeof(unsigned int));
+    writer->size += sizeof(unsigned int);
+}
+
+static void packet_write_ulong_alloced(packet_writer_alloced *writer,
+                                       unsigned long val) {
+    _packet_writer_alloced_check_capacity(writer, sizeof(unsigned long));
+    memcpy(&writer->data[writer->size], &val, sizeof(unsigned long));
+    writer->size += sizeof(unsigned long);
+}
+
+static void packet_write_float_alloced(packet_writer_alloced *writer,
+                                       float val) {
+    _packet_writer_alloced_check_capacity(writer, sizeof(float));
+    memcpy(&writer->data[writer->size], &val, sizeof(float));
+    writer->size += sizeof(float);
+}
+
+static void packet_write_double_alloced(packet_writer_alloced *writer,
+                                        double val) {
+    _packet_writer_alloced_check_capacity(writer, sizeof(double));
+    memcpy(&writer->data[writer->size], &val, sizeof(double));
+    writer->size += sizeof(double);
+}
+
+static void packet_write_bool_alloced(packet_writer_alloced *writer, bool val) {
+    _packet_writer_alloced_check_capacity(writer, sizeof(bool));
+    memcpy(&writer->data[writer->size], &val, sizeof(bool));
+    writer->size += sizeof(bool);
+}
+
+static void packet_write_array_alloced(packet_writer_alloced *writer, void *arr,
+                                       size_t total_size) {
+    _packet_writer_alloced_check_capacity(writer, total_size);
+    memcpy(&writer->data[writer->size], arr, total_size);
+    writer->size += total_size;
+}
+
+static void packet_writer_alloced_destroy(packet_writer_alloced *writer) {
+    free(writer->data);
+}
+
+static uint8_t packet_reader_init(packet_reader *reader, uint8_t *data,
+                                  size_t size) {
+    reader->data = data;
+    reader->size = size;
+    reader->pos = 0;
+
+    return reader->data[reader->pos++];
+}
+
+static char packet_read_char(packet_reader *reader) {
+    return (char)reader->data[reader->pos++];
+}
+
+static int packet_read_int(packet_reader *reader) {
+    int val = 0;
+    memcpy(&val, &reader->data[reader->pos], sizeof(int));
+    reader->pos += sizeof(int);
+    return val;
+}
+
+static unsigned int packet_read_uint(packet_reader *reader) {
+    unsigned int val = 0;
+    memcpy(&val, &reader->data[reader->pos], sizeof(unsigned int));
+    reader->pos += sizeof(unsigned int);
+    return val;
+}
+
+static unsigned long packet_read_ulong(packet_reader *reader) {
+    unsigned long val = 0;
+    memcpy(&val, &reader->data[reader->pos], sizeof(unsigned long));
+    reader->pos += sizeof(unsigned long);
+    return val;
+}
+
+static float packet_read_float(packet_reader *reader) {
+    float val = 0;
+    memcpy(&val, &reader->data[reader->pos], sizeof(float));
+    reader->pos += sizeof(float);
+    return val;
+}
+
+static double packet_read_double(packet_reader *reader) {
+    double val = 0;
+    memcpy(&val, &reader->data[reader->pos], sizeof(double));
+    reader->pos += sizeof(double);
+    return val;
+}
+
+static bool packet_read_bool(packet_reader *reader) {
+    bool val = 0;
+    memcpy(&val, &reader->data[reader->pos], sizeof(bool));
+    reader->pos += sizeof(bool);
+    return val;
+}
+
+static void *packet_read_array(packet_reader *reader, size_t total_size) {
+    void *arr = malloc(total_size);
+    memcpy(arr, &reader->data[reader->pos], total_size);
+    reader->pos += total_size;
+    return arr;
+}
+
+static void send_packet_to_server(client_t *client, packet_writer *writer,
+                                  int packet_flag) {
+    pthread_mutex_lock(&net_mutex);
+    ENetPacket *packet =
+        enet_packet_create(writer->data, writer->size, packet_flag);
+    enet_peer_send(client->peer, 0, packet);
+    pthread_mutex_unlock(&net_mutex);
+}
+
+static void send_packet_to_client(ENetPeer *peer, packet_writer *writer,
+                                  int packet_flag) {
+    ENetPacket *packet =
+        enet_packet_create(writer->data, writer->size, packet_flag);
+    enet_peer_send(peer, 0, packet);
+}
+
+static void broadcast_packet(server_t *server, packet_writer *writer,
+                             int packet_flag) {
+    ENetPacket *packet =
+        enet_packet_create(writer->data, writer->size, packet_flag);
+    enet_host_broadcast(server->server, 0, packet);
+}
+
+static void send_packet_to_server_alloced(client_t *client,
+                                          packet_writer_alloced *writer,
+                                          int packet_flag) {
+    pthread_mutex_lock(&net_mutex);
+    ENetPacket *packet =
+        enet_packet_create(writer->data, writer->size, packet_flag);
+    enet_peer_send(client->peer, 0, packet);
+    pthread_mutex_unlock(&net_mutex);
+}
+
+static void send_packet_to_client_alloced(ENetPeer *peer,
+                                          packet_writer_alloced *writer,
+                                          int packet_flag) {
+    ENetPacket *packet =
+        enet_packet_create(writer->data, writer->size, packet_flag);
+    enet_peer_send(peer, 0, packet);
+}
+
+static void broadcast_packet_alloced(server_t *server,
+                                     packet_writer_alloced *writer,
+                                     int packet_flag) {
+    ENetPacket *packet =
+        enet_packet_create(writer->data, writer->size, packet_flag);
+    enet_host_broadcast(server->server, 0, packet);
+}
+
+// }}}
+
+// }}}
+
 // {{{ Audio
 
 typedef struct {
@@ -1234,6 +1649,19 @@ static ma_sound **_active_sounds;
 static unsigned int _active_sounds_size;
 static unsigned int _active_sounds_cap;
 
+
+// Temporarily since static does trouble
+extern bool _muted;
+extern bool _voice_chat_ready;
+extern client_t *_client;
+extern int *_id;
+extern ma_pcm_rb _voice_ring_buffer;
+extern ma_device _playback_device;
+extern ma_device _capture_device;
+// static ma_device_config _playback_config;
+
+// static ma_device_config _capture_config;
+
 static void audio_init() {
     if (ma_engine_init(NULL, &_audio_engine) != MA_SUCCESS) {
         cpl_log(LOG_ERR, "Failed to init audio!");
@@ -1245,7 +1673,7 @@ static void audio_init() {
     _music = NULL;
 }
 
-static audio load_audio(char *path) { return (audio){path, 1.0f, 1.0f}; }
+static audio audio_load(char *path) { return (audio){path, 1.0f, 1.0f}; }
 
 static void audio_update() {
     unsigned int w = 0;
@@ -1284,6 +1712,148 @@ static void audio_play_sound(audio *a) {
         _active_sounds = tmp;
     }
     _active_sounds[_active_sounds_size++] = sound;
+}
+
+static void _audio_microphone_callback(ma_device *device, void *out,
+                                       const void *in, unsigned int frame_cnt) {
+    (void)device;
+    (void)out;
+    if (_muted || !in) {
+        return;
+    }
+
+    float *samples = (float *)in;
+
+    packet_writer_alloced writer;
+    packet_writer_alloced_init(&writer, NET_PACKET_AUDIO_VOICE_MSG);
+    packet_write_int_alloced(&writer, *_id);
+    packet_write_uint_alloced(&writer, frame_cnt);
+    packet_write_array_alloced(&writer, samples, frame_cnt * sizeof(float));
+    send_packet_to_server_alloced(_client, &writer, NET_PACKET_UNRELIABLE);
+    packet_writer_alloced_destroy(&writer);
+}
+
+static void audio_server_broadcast_voice_msg(packet_reader *reader,
+                                             server_t *server) {
+    int id = packet_read_int(reader);
+    unsigned int frame_cnt = packet_read_uint(reader);
+    float *samples = packet_read_array(reader, frame_cnt * sizeof(float));
+
+    packet_writer_alloced writer;
+    packet_writer_alloced_init(&writer, NET_PACKET_AUDIO_VOICE_MSG);
+
+    packet_write_int_alloced(&writer, id);
+    packet_write_uint_alloced(&writer, frame_cnt);
+    packet_write_array_alloced(&writer, samples, frame_cnt * sizeof(float));
+
+    broadcast_packet_alloced(server, &writer, NET_PACKET_UNRELIABLE);
+    packet_writer_alloced_destroy(&writer);
+
+    free(samples);
+}
+
+static void audio_client_handle_voice_msg(packet_reader *reader) {
+    if (!_voice_chat_ready) {
+        return;
+    }
+
+    int sender_id = packet_read_int(reader);
+    unsigned int frame_cnt = packet_read_uint(reader);
+
+    float *samples =
+        (float *)packet_read_array(reader, frame_cnt * sizeof(float));
+    if (samples == NULL) {
+        return;
+    }
+
+    unsigned int frames_written = frame_cnt;
+    float *rb_buffer = NULL;
+
+    if (ma_pcm_rb_acquire_write(&_voice_ring_buffer, &frames_written,
+                                (void **)&rb_buffer) == MA_SUCCESS) {
+        if (frames_written > 0 && rb_buffer != NULL) {
+            memcpy(rb_buffer, samples, frames_written * sizeof(float));
+        }
+        ma_pcm_rb_commit_write(&_voice_ring_buffer, frames_written);
+    }
+
+    free(samples);
+}
+
+static void _audio_playback_callback(ma_device *device, void *out,
+                                     const void *in, unsigned int frame_cnt) {
+    (void)in;
+
+    float *out_buffer = (float *)out;
+    memset(out_buffer, 0,
+           (size_t)frame_cnt * device->playback.channels * sizeof(float));
+
+    unsigned int total_frames_read = 0;
+
+    while (total_frames_read < frame_cnt) {
+        unsigned int frames_to_read = frame_cnt - total_frames_read;
+        float *rb_buffer = NULL;
+
+        if (ma_pcm_rb_acquire_read(&_voice_ring_buffer, &frames_to_read,
+                                   (void **)&rb_buffer) != MA_SUCCESS) {
+            break;
+        }
+
+        if (frames_to_read == 0 || rb_buffer == NULL) {
+            ma_pcm_rb_commit_read(&_voice_ring_buffer, 0);
+            break;
+        }
+
+        for (unsigned int i = 0; i < frames_to_read; i++) {
+            float mono_sample = rb_buffer[i];
+
+            size_t out_idx = (size_t)(total_frames_read + i) * 2;
+            out_buffer[out_idx] = mono_sample;
+            out_buffer[out_idx + 1] = mono_sample;
+        }
+
+        ma_pcm_rb_commit_read(&_voice_ring_buffer, frames_to_read);
+        total_frames_read += frames_to_read;
+    }
+}
+
+static void audio_muted(bool enable) { _muted = enable; }
+
+static void audio_init_voice_chat(client_t *client, int *id) {
+    _client = client;
+    _id = id;
+    _muted = false;
+    ma_pcm_rb_init(ma_format_f32, 1, 48000, NULL, NULL, &_voice_ring_buffer);
+
+    ma_device_config playback_config;
+
+    playback_config = ma_device_config_init(ma_device_type_playback);
+    playback_config.playback.format = ma_format_f32;
+    playback_config.playback.channels = 2;
+    playback_config.sampleRate = 48000;
+    playback_config.dataCallback = _audio_playback_callback;
+    if (ma_device_init(NULL, &playback_config, &_playback_device) !=
+        MA_SUCCESS) {
+        cpl_log(LOG_ERR, "Failed to init playback device!");
+        return;
+    }
+    ma_device_start(&_playback_device);
+
+    ma_device_config capture_config;
+
+    capture_config = ma_device_config_init(ma_device_type_capture);
+    capture_config.capture.format = ma_format_f32;
+    capture_config.capture.channels = 1;
+    capture_config.sampleRate = 48000;
+    capture_config.dataCallback = _audio_microphone_callback;
+    if (ma_device_init(NULL, &capture_config, &_capture_device) !=
+        MA_SUCCESS) {
+        cpl_log(LOG_ERR, "Failed to init microphone!");
+        return;
+    }
+    ma_device_start(&_capture_device);
+
+    _voice_chat_ready = true;
 }
 
 static void audio_play_music(audio *a) {
@@ -1722,8 +2292,7 @@ static void init_window(unsigned int width, unsigned int height, char *title,
     _screen_width = width;
     _screen_height = height;
 
-    _window =
-        glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
+    _window = glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
     if (!_window) {
         cpl_log(LOG_ERR, "[CPL] [ERROR] Failed to create window");
         glfwTerminate();
@@ -2225,8 +2794,8 @@ static void destroy_particle_system(particle_system *ps) {
 static void update_particle_system(particle_system *ps) {
     foreach_vec(p, ps->particles) {
         p->cur_life_time += get_dt();
-        p->pos = vec2f_add(VEC2F(p->dir.x * get_dt(), p->dir.y * get_dt()),
-                           p->pos);
+        p->pos =
+            vec2f_add(VEC2F(p->dir.x * get_dt(), p->dir.y * get_dt()), p->pos);
         if (p->cur_life_time >= p->life_time) {
             p->active = false;
         }
@@ -2483,257 +3052,6 @@ static void apply_hdr(bool gamma_correct, float exposure) {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
 }
-
-// }}}
-
-// {{{ Networking
-
-typedef enum { NET_PACKET_RELIABLE = 1 } packet_flags;
-
-#define NET_SEC(s) ((s) * 1000)
-
-// {{{ Client
-
-typedef struct {
-    ENetHost *client;
-    ENetAddress address;
-    ENetEvent event;
-    ENetPeer *peer;
-} client_t;
-
-static bool _net_worker_running = true;
-static ENetHost *_host = NULL;
-static void (*_parse_func)(char *, size_t, void *) = NULL;
-static void *_parse_arg = NULL;
-static pthread_t _net_worker;
-
-static void *_net_worker_loop() {
-    while (_net_worker_running) {
-        ENetEvent event;
-        while (enet_host_service(_host, &event, 0) > 0) {
-            if (event.type == ENET_EVENT_TYPE_RECEIVE) {
-                _parse_func((char *)event.packet->data,
-                            event.packet->dataLength, _parse_arg);
-                enet_packet_destroy(event.packet);
-            }
-        }
-    }
-
-    return NULL;
-}
-
-static void client_create_worker_loop(client_t *client,
-                                      void (*parse_data)(char *, size_t,
-                                                         void *),
-                                      void *parse_data_arg) {
-    _host = client->client;
-    _parse_func = parse_data;
-    _parse_arg = parse_data_arg;
-    pthread_create(&_net_worker, NULL, _net_worker_loop, NULL);
-}
-
-static void client_destroy_worker_loop() {
-    _net_worker_running = false;
-    pthread_join(_net_worker, NULL);
-}
-
-static bool client_create(client_t *client, char *ip, int port, int wait_ms) {
-    if (enet_initialize()) {
-        fprintf(stderr, "Failed to init ENet\n");
-        exit(-1);
-    }
-    atexit(enet_deinitialize);
-
-    client->client = NULL;
-    client->client = enet_host_create(NULL, 1, 1, 0, 0);
-    if (!client) {
-        fprintf(stderr, "Failed to create client host\n");
-        exit(-1);
-    }
-
-    if (!ip) {
-        fprintf(stderr, "IP is invalid\n");
-        exit(-1);
-    }
-
-    enet_address_set_host(&client->address, ip);
-    client->address.port = port;
-
-    client->peer = enet_host_connect(client->client, &client->address, 1, 0);
-    if (!client->peer) {
-        fprintf(stderr, "No peers available for connection\n");
-        exit(-1);
-    }
-
-    if (enet_host_service(client->client, &client->event, wait_ms) > 0 &&
-        client->event.type == ENET_EVENT_TYPE_CONNECT) {
-        return true;
-    }
-    enet_peer_reset(client->peer);
-    return false;
-}
-
-static void client_destroy(client_t *client, int wait_ms) {
-    enet_peer_disconnect(client->peer, 0);
-    while (enet_host_service(client->client, &client->event, wait_ms) > 0) {
-        if (client->event.type == ENET_EVENT_TYPE_RECEIVE) {
-            enet_packet_destroy(client->event.packet);
-        } else if (client->event.type == ENET_EVENT_TYPE_DISCONNECT) {
-            break;
-        }
-    }
-}
-
-// }}}
-
-// {{{ Server
-
-typedef struct {
-    ENetHost *server;
-    ENetAddress address;
-} server_t;
-
-static void server_init(server_t *server, int port, struct in6_addr host,
-                        int max_clients) {
-    if (enet_initialize()) {
-        fprintf(stderr, "Failed to init ENet\n");
-        exit(-1);
-    }
-    atexit(enet_deinitialize);
-
-    server->address.host = host;
-    server->address.port = port;
-
-    server->server = enet_host_create(&server->address, max_clients, 1, 0, 0);
-    if (!server) {
-        fprintf(stderr, "Failed to create server host\n");
-        exit(-1);
-    }
-}
-
-static void server_destroy(server_t *server) {
-    enet_host_destroy(server->server);
-}
-
-// }}}
-
-// {{{ Packets
-
-typedef struct {
-    uint8_t data[1024];
-    size_t size;
-} packet_writer;
-
-typedef struct {
-    uint8_t *data;
-    size_t size;
-    size_t pos;
-} packet_reader;
-
-static void packet_writer_init(packet_writer *writer, uint8_t packet_id) {
-    writer->data[0] = packet_id;
-    writer->size = 1;
-}
-
-static void packet_write_char(packet_writer *writer, char val) {
-    writer->data[writer->size++] = val;
-}
-
-static void packet_write_int(packet_writer *writer, int val) {
-    memcpy(&writer->data[writer->size], &val, sizeof(int));
-    writer->size += sizeof(int);
-}
-
-static void packet_write_uint(packet_writer *writer, unsigned int val) {
-    memcpy(&writer->data[writer->size], &val, sizeof(unsigned int));
-    writer->size += sizeof(unsigned int);
-}
-
-static void packet_write_float(packet_writer *writer, float val) {
-    memcpy(&writer->data[writer->size], &val, sizeof(float));
-    writer->size += sizeof(float);
-}
-
-static void packet_write_double(packet_writer *writer, double val) {
-    memcpy(&writer->data[writer->size], &val, sizeof(double));
-    writer->size += sizeof(double);
-}
-
-static void packet_write_bool(packet_writer *writer, bool val) {
-    memcpy(&writer->data[writer->size], &val, sizeof(bool));
-    writer->size += sizeof(bool);
-}
-
-static uint8_t packet_reader_init(packet_reader *reader, uint8_t *data,
-                                  size_t size) {
-    reader->data = data;
-    reader->size = size;
-    reader->pos = 0;
-
-    return reader->data[reader->pos++];
-}
-
-static char packet_read_char(packet_reader *reader) {
-    return (char)reader->data[reader->pos++];
-}
-
-static int packet_read_int(packet_reader *reader) {
-    int val = 0;
-    memcpy(&val, &reader->data[reader->pos], sizeof(int));
-    reader->pos += sizeof(int);
-    return val;
-}
-
-static unsigned int packet_read_uint(packet_reader *reader) {
-    unsigned int val = 0;
-    memcpy(&val, &reader->data[reader->pos], sizeof(unsigned int));
-    reader->pos += sizeof(unsigned int);
-    return val;
-}
-
-static float packet_read_float(packet_reader *reader) {
-    float val = 0;
-    memcpy(&val, &reader->data[reader->pos], sizeof(float));
-    reader->pos += sizeof(float);
-    return val;
-}
-
-static double packet_read_double(packet_reader *reader) {
-    double val = 0;
-    memcpy(&val, &reader->data[reader->pos], sizeof(double));
-    reader->pos += sizeof(double);
-    return val;
-}
-
-static bool packet_read_bool(packet_reader *reader) {
-    bool val = 0;
-    memcpy(&val, &reader->data[reader->pos], sizeof(bool));
-    reader->pos += sizeof(bool);
-    return val;
-}
-
-static void send_packet_to_server(client_t *client, packet_writer *writer,
-                                  int packet_flag) {
-    ENetPacket *packet =
-        enet_packet_create(writer->data, writer->size, packet_flag);
-    enet_peer_send(client->peer, 0, packet);
-}
-
-static void send_packet_to_client(ENetPeer *peer, packet_writer *writer,
-                                  int packet_flag) {
-    ENetPacket *packet =
-        enet_packet_create(writer->data, writer->size, packet_flag);
-    enet_peer_send(peer, 0, packet);
-}
-
-static void broadcast_packet(server_t *server, packet_writer *writer,
-                             int packet_flag) {
-    ENetPacket *packet =
-        enet_packet_create(writer->data, writer->size, packet_flag);
-    enet_host_broadcast(server->server, 0, packet);
-}
-
-// }}}
 
 // }}}
 
