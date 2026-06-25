@@ -6,7 +6,10 @@
 
 #include <GLFW/glfw3.h>
 
+#ifdef __linux__
 #include <malloc.h>
+#endif
+
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -320,6 +323,8 @@ static void screenshot(char *path, vec2f screen) {
 
 // {{{ Profiler
 
+#ifdef __linux__
+
 static unsigned int get_heap_size() {
 #ifndef __EMSCRIPTEN__
     struct mallinfo2 mi = mallinfo2();
@@ -375,6 +380,8 @@ static unsigned int get_stack_used() {
     return 0;
 #endif
 }
+
+#endif
 
 // }}}
 
@@ -1651,16 +1658,17 @@ static unsigned int _active_sounds_cap;
 
 
 // Temporarily since static does trouble
-extern bool _muted;
-extern bool _voice_chat_ready;
-extern client_t *_client;
-extern int *_id;
-extern ma_pcm_rb _voice_ring_buffer;
-extern ma_device _playback_device;
-extern ma_device _capture_device;
-// static ma_device_config _playback_config;
+#ifdef CPL_IMPLEMENTATION
 
-// static ma_device_config _capture_config;
+bool _muted;
+bool _voice_chat_ready;
+client_t *_client;
+int *_id;
+ma_pcm_rb _voice_ring_buffer;
+ma_device _playback_device;
+ma_device _capture_device;
+
+#endif
 
 static void audio_init() {
     if (ma_engine_init(NULL, &_audio_engine) != MA_SUCCESS) {
@@ -1714,7 +1722,19 @@ static void audio_play_sound(audio *a) {
     _active_sounds[_active_sounds_size++] = sound;
 }
 
-static void _audio_microphone_callback(ma_device *device, void *out,
+void _audio_microphone_callback(ma_device *device, void *out,
+                                const void *in, unsigned int frame_cnt);
+void audio_server_broadcast_voice_msg(packet_reader *reader,
+                                      server_t *server);
+void audio_client_handle_voice_msg(packet_reader *reader);
+void _audio_playback_callback(ma_device *device, void *out,
+                              const void *in, unsigned int frame_cnt);
+void audio_muted(bool enable);
+void audio_init_voice_chat(client_t *client, int *id);
+
+#ifdef CPL_IMPLEMENTATION
+
+void _audio_microphone_callback(ma_device *device, void *out,
                                        const void *in, unsigned int frame_cnt) {
     (void)device;
     (void)out;
@@ -1733,7 +1753,7 @@ static void _audio_microphone_callback(ma_device *device, void *out,
     packet_writer_alloced_destroy(&writer);
 }
 
-static void audio_server_broadcast_voice_msg(packet_reader *reader,
+void audio_server_broadcast_voice_msg(packet_reader *reader,
                                              server_t *server) {
     int id = packet_read_int(reader);
     unsigned int frame_cnt = packet_read_uint(reader);
@@ -1752,7 +1772,7 @@ static void audio_server_broadcast_voice_msg(packet_reader *reader,
     free(samples);
 }
 
-static void audio_client_handle_voice_msg(packet_reader *reader) {
+void audio_client_handle_voice_msg(packet_reader *reader) {
     if (!_voice_chat_ready) {
         return;
     }
@@ -1780,7 +1800,7 @@ static void audio_client_handle_voice_msg(packet_reader *reader) {
     free(samples);
 }
 
-static void _audio_playback_callback(ma_device *device, void *out,
+void _audio_playback_callback(ma_device *device, void *out,
                                      const void *in, unsigned int frame_cnt) {
     (void)in;
 
@@ -1817,9 +1837,9 @@ static void _audio_playback_callback(ma_device *device, void *out,
     }
 }
 
-static void audio_muted(bool enable) { _muted = enable; }
+void audio_muted(bool enable) { _muted = enable; }
 
-static void audio_init_voice_chat(client_t *client, int *id) {
+void audio_init_voice_chat(client_t *client, int *id) {
     _client = client;
     _id = id;
     _muted = false;
@@ -1855,6 +1875,8 @@ static void audio_init_voice_chat(client_t *client, int *id) {
 
     _voice_chat_ready = true;
 }
+
+#endif
 
 static void audio_play_music(audio *a) {
     if (_music) {
@@ -2441,6 +2463,8 @@ static void display_details(font *font) {
     snprintf(renderer_str, 50, "Renderer: %s", _renderer);
     snprintf(vendor_str, 50, "Vendor: %s", _vendor);
     snprintf(fps, 15, "FPS: %d", get_fps());
+
+#ifdef __linux__
     snprintf(stack_used, 50, "Stack used: %.3f / %.3f MiB (%f%%)",
              MiB((float)get_stack_used()), MiB((float)get_stack_size()),
              (float)get_stack_used() / (float)get_stack_size());
@@ -2450,15 +2474,18 @@ static void display_details(font *font) {
              (int)MiB((float)get_heap_used()));
     snprintf(heap_free, 50, "Heap free: %d MB",
              (int)MiB((float)get_heap_free()));
+#endif
 
     draw_text(font, version_str, VEC2F(10.0f, 10.0f), 0.5f, WHITE);
     draw_text(font, renderer_str, VEC2F(10.0f, 40.0f), 0.5f, WHITE);
     draw_text(font, vendor_str, VEC2F(10.0f, 70.0f), 0.5f, WHITE);
     draw_text(font, fps, VEC2F(10.0f, 100.0f), 0.5f, WHITE);
+#ifdef __linux__
     draw_text(font, stack_used, VEC2F(10.0f, 130.0f), 0.5f, WHITE);
     draw_text(font, heap_total, VEC2F(10.0f, 160.0f), 0.5f, WHITE);
     draw_text(font, heap_used, VEC2F(10.0f, 190.0f), 0.5f, WHITE);
     draw_text(font, heap_free, VEC2F(10.0f, 220.0f), 0.5f, WHITE);
+#endif
 }
 
 // }}}
