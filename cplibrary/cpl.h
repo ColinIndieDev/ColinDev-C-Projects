@@ -1,6 +1,8 @@
 #pragma once
 
+#ifdef __linux__
 #define _GNU_SOURCE
+#endif
 
 #include <glad/glad.h>
 
@@ -1254,14 +1256,6 @@ static void (*_parse_func)(char *, size_t, void *) = NULL;
 static void *_parse_arg = NULL;
 static pthread_t _net_worker;
 
-static int net_host_service(ENetHost *host, ENetEvent *event,
-                            unsigned int timeout) {
-    pthread_mutex_lock(&net_mutex);
-    int service = enet_host_service(host, event, timeout);
-    pthread_mutex_unlock(&net_mutex);
-    return service;
-}
-
 static void *_net_worker_loop() {
     while (_net_worker_running) {
         ENetEvent event;
@@ -1281,9 +1275,9 @@ static void *_net_worker_loop() {
                 enet_packet_destroy(event.packet);
             }
         }
-        
+
         pthread_mutex_unlock(&net_mutex);
-        
+
         struct timespec ts = {0, 500000};
         nanosleep(&ts, NULL);
     }
@@ -1389,7 +1383,7 @@ static void server_destroy(server_t *server) {
 // {{{ Packets
 
 typedef struct {
-    uint8_t data[1024];
+    uint8_t data[1024 * 5]; // 5 KiB
     size_t size;
 } packet_writer;
 
@@ -1591,10 +1585,15 @@ static void *packet_read_array(packet_reader *reader, size_t total_size) {
 
 static void send_packet_to_server(client_t *client, packet_writer *writer,
                                   int packet_flag) {
+    if (client->peer->state != ENET_PEER_STATE_CONNECTED) {
+        return;
+    }
     pthread_mutex_lock(&net_mutex);
     ENetPacket *packet =
         enet_packet_create(writer->data, writer->size, packet_flag);
-    enet_peer_send(client->peer, 0, packet);
+    if (enet_peer_send(client->peer, 0, packet) < 0) {
+        enet_packet_destroy(packet);
+    }
     pthread_mutex_unlock(&net_mutex);
 }
 
@@ -1615,10 +1614,15 @@ static void broadcast_packet(server_t *server, packet_writer *writer,
 static void send_packet_to_server_alloced(client_t *client,
                                           packet_writer_alloced *writer,
                                           int packet_flag) {
+    if (client->peer->state != ENET_PEER_STATE_CONNECTED) {
+        return;
+    }
     pthread_mutex_lock(&net_mutex);
     ENetPacket *packet =
         enet_packet_create(writer->data, writer->size, packet_flag);
-    enet_peer_send(client->peer, 0, packet);
+    if (enet_peer_send(client->peer, 0, packet) < 0) {
+        enet_packet_destroy(packet);
+    }
     pthread_mutex_unlock(&net_mutex);
 }
 
@@ -1656,8 +1660,6 @@ static ma_sound **_active_sounds;
 static unsigned int _active_sounds_size;
 static unsigned int _active_sounds_cap;
 
-
-// Temporarily since static does trouble
 #ifdef CPL_IMPLEMENTATION
 
 bool _muted;
@@ -1722,20 +1724,19 @@ static void audio_play_sound(audio *a) {
     _active_sounds[_active_sounds_size++] = sound;
 }
 
-void _audio_microphone_callback(ma_device *device, void *out,
-                                const void *in, unsigned int frame_cnt);
-void audio_server_broadcast_voice_msg(packet_reader *reader,
-                                      server_t *server);
+void _audio_microphone_callback(ma_device *device, void *out, const void *in,
+                                unsigned int frame_cnt);
+void audio_server_broadcast_voice_msg(packet_reader *reader, server_t *server);
 void audio_client_handle_voice_msg(packet_reader *reader);
-void _audio_playback_callback(ma_device *device, void *out,
-                              const void *in, unsigned int frame_cnt);
+void _audio_playback_callback(ma_device *device, void *out, const void *in,
+                              unsigned int frame_cnt);
 void audio_muted(bool enable);
 void audio_init_voice_chat(client_t *client, int *id);
 
 #ifdef CPL_IMPLEMENTATION
 
-void _audio_microphone_callback(ma_device *device, void *out,
-                                       const void *in, unsigned int frame_cnt) {
+void _audio_microphone_callback(ma_device *device, void *out, const void *in,
+                                unsigned int frame_cnt) {
     (void)device;
     (void)out;
     if (_muted || !in) {
@@ -1744,30 +1745,27 @@ void _audio_microphone_callback(ma_device *device, void *out,
 
     float *samples = (float *)in;
 
-    packet_writer_alloced writer;
-    packet_writer_alloced_init(&writer, NET_PACKET_AUDIO_VOICE_MSG);
-    packet_write_int_alloced(&writer, *_id);
-    packet_write_uint_alloced(&writer, frame_cnt);
-    packet_write_array_alloced(&writer, samples, frame_cnt * sizeof(float));
-    send_packet_to_server_alloced(_client, &writer, NET_PACKET_UNRELIABLE);
-    packet_writer_alloced_destroy(&writer);
+    packet_writer writer;
+    packet_writer_init(&writer, NET_PACKET_AUDIO_VOICE_MSG);
+    packet_write_int(&writer, *_id);
+    packet_write_uint(&writer, frame_cnt);
+    packet_write_array(&writer, samples, frame_cnt * sizeof(float));
+    send_packet_to_server(_client, &writer, NET_PACKET_UNRELIABLE);
 }
 
-void audio_server_broadcast_voice_msg(packet_reader *reader,
-                                             server_t *server) {
+void audio_server_broadcast_voice_msg(packet_reader *reader, server_t *server) {
     int id = packet_read_int(reader);
     unsigned int frame_cnt = packet_read_uint(reader);
     float *samples = packet_read_array(reader, frame_cnt * sizeof(float));
 
-    packet_writer_alloced writer;
-    packet_writer_alloced_init(&writer, NET_PACKET_AUDIO_VOICE_MSG);
+    packet_writer writer;
+    packet_writer_init(&writer, NET_PACKET_AUDIO_VOICE_MSG);
 
-    packet_write_int_alloced(&writer, id);
-    packet_write_uint_alloced(&writer, frame_cnt);
-    packet_write_array_alloced(&writer, samples, frame_cnt * sizeof(float));
+    packet_write_int(&writer, id);
+    packet_write_uint(&writer, frame_cnt);
+    packet_write_array(&writer, samples, frame_cnt * sizeof(float));
 
-    broadcast_packet_alloced(server, &writer, NET_PACKET_UNRELIABLE);
-    packet_writer_alloced_destroy(&writer);
+    broadcast_packet(server, &writer, NET_PACKET_UNRELIABLE);
 
     free(samples);
 }
@@ -1776,8 +1774,10 @@ void audio_client_handle_voice_msg(packet_reader *reader) {
     if (!_voice_chat_ready) {
         return;
     }
-
     int sender_id = packet_read_int(reader);
+    if (sender_id == *_id) {
+        return;
+    }
     unsigned int frame_cnt = packet_read_uint(reader);
 
     float *samples =
@@ -1800,8 +1800,8 @@ void audio_client_handle_voice_msg(packet_reader *reader) {
     free(samples);
 }
 
-void _audio_playback_callback(ma_device *device, void *out,
-                                     const void *in, unsigned int frame_cnt) {
+void _audio_playback_callback(ma_device *device, void *out, const void *in,
+                              unsigned int frame_cnt) {
     (void)in;
 
     float *out_buffer = (float *)out;
@@ -1866,8 +1866,7 @@ void audio_init_voice_chat(client_t *client, int *id) {
     capture_config.capture.channels = 1;
     capture_config.sampleRate = 48000;
     capture_config.dataCallback = _audio_microphone_callback;
-    if (ma_device_init(NULL, &capture_config, &_capture_device) !=
-        MA_SUCCESS) {
+    if (ma_device_init(NULL, &capture_config, &_capture_device) != MA_SUCCESS) {
         cpl_log(LOG_ERR, "Failed to init microphone!");
         return;
     }
