@@ -21,7 +21,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#ifdef CPL_IMPLEMENTATION
+#ifdef CPL_IMPL
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define MINIAUDIO_IMPLEMENTATION
@@ -115,10 +115,10 @@
 #define KEY_BACKSPACE 259
 #define KEY_INSERT 260
 #define KEY_DELETE 261
-#define KEY_RIGHT 262
-#define KEY_LEFT 263
-#define KEY_DOWN 264
-#define KEY_UP 265
+#define KEY_RIGHT_ARROW 262
+#define KEY_LEFT_ARROW 263
+#define KEY_DOWN_ARROW 264
+#define KEY_UP_ARROW 265
 #define KEY_PAGE_UP 266
 #define KEY_PAGE_DOWN 267
 #define KEY_HOME 268
@@ -185,31 +185,33 @@
 
 // {{{ OpenGL Versions
 
-#define OPENGL_VER_1_0 10
-#define OPENGL_VER_2_0 20
-#define OPENGL_VER_3_0 30
-#define OPENGL_VER_3_3 33
-#define OPENGL_VER_4_0 40
-#define OPENGL_VER_4_1 41
-#define OPENGL_VER_4_2 42
-#define OPENGL_VER_4_3 43
-#define OPENGL_VER_4_4 44
-#define OPENGL_VER_4_5 45
-#define OPENGL_VER_4_6 46
+typedef enum {
+    OPENGL_VER_1_0 = 10,
+    OPENGL_VER_2_0 = 20,
+    OPENGL_VER_3_0 = 30,
+    OPENGL_VER_3_3 = 33,
+    OPENGL_VER_4_0 = 40,
+    OPENGL_VER_4_1 = 41,
+    OPENGL_VER_4_2 = 42,
+    OPENGL_VER_4_3 = 43,
+    OPENGL_VER_4_4 = 44,
+    OPENGL_VER_4_5 = 45,
+    OPENGL_VER_4_6 = 46
+} opengl_versions;
 
 // }}}
 
 // {{{ Colors
 
-typedef vec4f color;
+typedef vec4f color_t;
 
-#define RGB(r, g, b) (color){r, g, b, 255}
+#define RGB(r, g, b) (color_t){r, g, b, 255}
 #define RGBA(r, g, b, a)                                                       \
-    (color) { r, g, b, a }
+    (color_t) { r, g, b, a }
 
-#define RGB_NORM(r, g, b) (color){(r) * 255, (g) * 255, (b) * 255, 255}
+#define RGB_NORM(r, g, b) (color_t){(r) * 255, (g) * 255, (b) * 255, 255}
 #define RGBA_NORM(r, g, b, a)                                                  \
-    (color){(r) * 255, (g) * 255, (b) * 255, (a) * 255}
+    (color_t){(r) * 255, (g) * 255, (b) * 255, (a) * 255}
 
 #define WHITE RGB(255, 255, 255)
 #define BLACK RGB(0, 0, 0)
@@ -235,9 +237,18 @@ extern "C" {
 
 // {{{ Logging
 
-typedef enum { LOG_INFO, LOG_WARN, LOG_ERR, LOG_NONE } cpl_log_level;
+typedef enum { 
+    LOG_INFO = 0, 
+    LOG_WARN, 
+    LOG_ERR, 
+    LOG_NONE 
+} log_level;
 
-static void cpl_log(cpl_log_level level, char *msg, ...) {
+void cpl_log(log_level level, char *msg, ...);
+
+#ifdef CPL_IMPL
+
+void cpl_log(log_level level, char *msg, ...) {
     va_list args;
     va_start(args, msg);
     switch (level) {
@@ -295,11 +306,17 @@ static void cpl_log(cpl_log_level level, char *msg, ...) {
     printf("\n");
 }
 
+#endif
+
 // }}}
 
 // {{{ Screenshot
 
-static void screenshot(char *path, vec2f screen) {
+void screenshot_take(char *path, vec2f screen);
+
+#ifdef CPL_IMPL
+
+void screenshot_take(char *path, vec2f screen) {
     static int screenshots_taken = 0;
     int w = (int)screen.x;
     int h = (int)screen.y;
@@ -315,11 +332,12 @@ static void screenshot(char *path, vec2f screen) {
         }
     }
     char final[100];
-    snprintf(final, sizeof(final), "%sscreenshot%d.png", path,
-             screenshots_taken);
+    snprintf(final, sizeof(final), "%sscreenshot%d.png", path, screenshots_taken);
     stbi_write_png(final, w, h, 3, pixels, s);
     screenshots_taken++;
 }
+
+#endif
 
 // }}}
 
@@ -327,7 +345,15 @@ static void screenshot(char *path, vec2f screen) {
 
 #ifdef __linux__
 
-static unsigned int get_heap_size() {
+unsigned int profiler_get_heap_size();
+unsigned int profiler_get_heap_used();
+unsigned int profiler_get_heap_free();
+unsigned int profiler_get_stack_size();
+unsigned int profiler_get_stack_used();
+
+#ifdef CPL_IMPL
+
+unsigned int profiler_get_heap_size() {
 #ifndef __EMSCRIPTEN__
     struct mallinfo2 mi = mallinfo2();
     return mi.arena;
@@ -335,8 +361,7 @@ static unsigned int get_heap_size() {
     return 0;
 #endif
 }
-
-static unsigned int get_heap_used() {
+unsigned int profiler_get_heap_used() {
 #ifndef __EMSCRIPTEN__
     struct mallinfo2 mi = mallinfo2();
     return mi.uordblks;
@@ -344,8 +369,7 @@ static unsigned int get_heap_used() {
     return 0;
 #endif
 }
-
-static unsigned int get_heap_free() {
+unsigned int profiler_get_heap_free() {
 #ifndef __EMSCRIPTEN__
     struct mallinfo2 mi = mallinfo2();
     return mi.fordblks;
@@ -353,8 +377,7 @@ static unsigned int get_heap_free() {
     return 0;
 #endif
 }
-
-static unsigned int get_stack_size() {
+unsigned int profiler_get_stack_size() {
 #ifndef __EMSCRIPTEN__
     pthread_attr_t attr;
     pthread_getattr_np(pthread_self(), &attr);
@@ -366,8 +389,7 @@ static unsigned int get_stack_size() {
     return 0;
 #endif
 }
-
-static unsigned int get_stack_used() {
+unsigned int profiler_get_stack_used() {
 #ifndef __EMSCRIPTEN__
     pthread_attr_t attr;
     pthread_getattr_np(pthread_self(), &attr);
@@ -385,11 +407,20 @@ static unsigned int get_stack_used() {
 
 #endif
 
+#endif
+
 // }}}
 
 // {{{ OpenGL Debug
 
-static GLenum _check_gl_error(char *path, unsigned int line) {
+GLenum _opengl_debug_check_error(char *path, unsigned int line);
+void opengl_debug_check_error();
+void APIENTRY _opengl_debug_out(GLenum src, GLenum type, unsigned int id, GLenum severity, GLsizei len, const char *msg, const void *usr_prog);
+void opengl_debug_enable();
+
+#ifdef CPL_IMPL
+
+GLenum _opengl_debug_check_error(char *path, unsigned int line) {
     GLenum errorCode;
     while ((errorCode = glGetError()) != GL_NO_ERROR) {
         char *error;
@@ -423,14 +454,13 @@ static GLenum _check_gl_error(char *path, unsigned int line) {
     }
     return errorCode;
 }
+void opengl_debug_check_error() {
+    _opengl_debug_check_error(__FILE__, __LINE__);
+}
+void APIENTRY _opengl_debug_out(GLenum src, GLenum type, unsigned int id, GLenum severity, GLsizei len, const char *msg, const void *usr_prog) {
+    (void)len;
+    (void)usr_prog;
 
-static void check_opengl_error() { _check_gl_error(__FILE__, __LINE__); }
-
-static void APIENTRY _gl_debug_out(GLenum src, GLenum type, unsigned int id,
-                                   GLenum severity,
-                                   [[maybe_unused]] GLsizei len,
-                                   const char *msg,
-                                   [[maybe_unused]] const void *usr_prog) {
     if (id == 131169 || id == 131185 || id == 131218 || id == 131204) {
         return;
     }
@@ -518,8 +548,7 @@ static void APIENTRY _gl_debug_out(GLenum src, GLenum type, unsigned int id,
     fprintf(stderr, "\n");
     fprintf(stderr, "\n");
 }
-
-static void enable_opengl_debug() {
+void opengl_debug_enable() {
     int flags = 0;
     glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
 
@@ -536,11 +565,13 @@ static void enable_opengl_debug() {
 
         glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-        glDebugMessageCallback(_gl_debug_out, NULL);
+        glDebugMessageCallback(_opengl_debug_out, NULL);
         glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL,
                               GL_TRUE);
     }
 }
+
+#endif
 
 // }}}
 
@@ -550,7 +581,21 @@ typedef struct {
     unsigned int id;
 } shader;
 
-static bool _check_shader_compile_errors(unsigned int shader, char *type) {
+bool _shader_check_compile_errors(unsigned int shader, char *type);
+char *_shader_read_file(char *path);
+void shader_create(shader *s, char *vert_path, char *frag_path);
+void shader_use(shader *s);
+void shader_set_bool(shader *s, char *name, bool val);
+void shader_set_int(shader *s, char *name, int val);
+void shader_set_float(shader *s, char *name, float val);
+void shader_set_color(shader *s, char *name, color_t c);
+void shader_set_mat4f(shader *s, char *name, mat4f *mat);
+void shader_set_vec2f(shader *s, char *name, vec2f v);
+void shader_set_vec3f(shader *s, char *name, vec3f v);
+
+#ifdef CPL_IMPL
+
+bool _shader_check_compile_errors(unsigned int shader, char *type) {
     int success = 0;
     char info_cpl_log[1024];
 
@@ -558,23 +603,20 @@ static bool _check_shader_compile_errors(unsigned int shader, char *type) {
         glGetProgramiv(shader, GL_LINK_STATUS, &success);
         if (!success) {
             glGetProgramInfoLog(shader, 1024, NULL, info_cpl_log);
-            cpl_log(LOG_ERR, "[CPL] [ERROR] Program linking error:\n%s\n",
-                    info_cpl_log);
+            cpl_log(LOG_ERR, "[CPL] [ERROR] Program linking error:\n%s\n", info_cpl_log);
             return false;
         }
     } else {
         glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
         if (!success) {
             glGetShaderInfoLog(shader, 1024, NULL, info_cpl_log);
-            cpl_log(LOG_ERR, "[CPL] [ERROR] Shader compilation error: %s\n%s\n",
-                    type, info_cpl_log);
+            cpl_log(LOG_ERR, "[CPL] [ERROR] Shader compilation error: %s\n%s\n", type, info_cpl_log);
             return false;
         }
     }
     return true;
 }
-
-static char *_read_shader_file(char *path) {
+char *_shader_read_file(char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) {
         return NULL;
@@ -601,64 +643,55 @@ static char *_read_shader_file(char *path) {
     buffer[size] = '\0';
     return buffer;
 }
-
-static void create_shader(shader *s, char *vert_path, char *frag_path) {
-    char *vert_code = _read_shader_file(vert_path);
-    char *frag_code = _read_shader_file(frag_path);
+void shader_create(shader *s, char *vert_path, char *frag_path) {
+    char *vert_code = _shader_read_file(vert_path);
+    char *frag_code = _shader_read_file(frag_path);
 
     unsigned int vert = 0;
     unsigned int frag = 0;
     vert = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vert, 1, (const GLchar *const *)&vert_code, NULL);
     glCompileShader(vert);
-    _check_shader_compile_errors(vert, "VERTEX");
+    _shader_check_compile_errors(vert, "VERTEX");
     frag = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(frag, 1, (const GLchar *const *)&frag_code, NULL);
     glCompileShader(frag);
-    _check_shader_compile_errors(frag, "FRAGMENT");
+    _shader_check_compile_errors(frag, "FRAGMENT");
     s->id = glCreateProgram();
     glAttachShader(s->id, vert);
     glAttachShader(s->id, frag);
     glLinkProgram(s->id);
-    _check_shader_compile_errors(s->id, "PROGRAM");
+    _shader_check_compile_errors(s->id, "PROGRAM");
 
     free(vert_code);
     free(frag_code);
     glDeleteShader(vert);
     glDeleteShader(frag);
 }
-
-static void use_shader(shader *s) { glUseProgram(s->id); }
-
-static void shader_set_bool(shader *s, char *name, bool val) {
+void shader_use(shader *s) { glUseProgram(s->id); }
+void shader_set_bool(shader *s, char *name, bool val) {
     glUniform1i(glGetUniformLocation(s->id, name), val);
 }
-
-static void shader_set_int(shader *s, char *name, int val) {
+void shader_set_int(shader *s, char *name, int val) {
     glUniform1i(glGetUniformLocation(s->id, name), val);
 }
-
-static void shader_set_float(shader *s, char *name, float val) {
+void shader_set_float(shader *s, char *name, float val) {
     glUniform1f(glGetUniformLocation(s->id, name), val);
 }
-
-static void shader_set_rgba(shader *s, char *name, vec4f c) {
-    glUniform4f(glGetUniformLocation(s->id, name), c.r / 255.0f, c.g / 255.0f,
-                c.b / 255.0f, c.a / 255.0f);
+void shader_set_color(shader *s, char *name, color_t c) {
+    glUniform4f(glGetUniformLocation(s->id, name), c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, c.a / 255.0f);
 }
-
-static void shader_set_mat4f(shader *s, char *name, mat4f mat) {
-    glUniformMatrix4fv(glGetUniformLocation(s->id, name), 1, GL_FALSE,
-                       (const GLfloat *)mat.data);
+void shader_set_mat4f(shader *s, char *name, mat4f *mat) {
+    glUniformMatrix4fv(glGetUniformLocation(s->id, name), 1, GL_FALSE, (const GLfloat *)mat->data);
 }
-
-static void shader_set_vec2f(shader *s, char *name, vec2f v) {
+void shader_set_vec2f(shader *s, char *name, vec2f v) {
     glUniform2f(glGetUniformLocation(s->id, name), v.x, v.y);
 }
-
-static void shader_set_vec3f(shader *s, char *name, vec3f v) {
+void shader_set_vec3f(shader *s, char *name, vec3f v) {
     glUniform3f(glGetUniformLocation(s->id, name), v.x, v.y, v.z);
 }
+
+#endif
 
 // }}}
 
@@ -672,22 +705,27 @@ typedef struct {
     unsigned int vbo, vao, ebo;
 } rect;
 
-static void create_rect(rect *r, vec2f pos, vec2f size, vec4f color,
-                        float rot) {
+void rect_create(rect *r, vec2f pos, vec2f size, vec4f color, float rot);
+void rect_destroy(rect *r);
+void rect_draw_raw(shader *s, rect *r);
+
+#ifdef CPL_IMPL
+
+void rect_create(rect *r, vec2f pos, vec2f size, vec4f color, float rot) {
     r->pos = pos;
     r->size = size;
     r->color = color;
     r->rot = rot;
 
     float vertices[12] = {
-        size.x, 0.0f,   0.0f, //
-        size.x, size.y, 0.0f, //
-        0.0f,   size.y, 0.0f, //
-        0.0f,   0.0f,   0.0f  //
+        size.x, 0.0f,   0.0f, 
+        size.x, size.y, 0.0f, 
+        0.0f,   size.y, 0.0f, 
+        0.0f,   0.0f,   0.0f  
     };
     unsigned int indices[6] = {
-        0, 1, 3, //
-        1, 2, 3  //
+        0, 1, 3, 
+        1, 2, 3  
     };
 
     glGenVertexArrays(1, &r->vao);
@@ -697,16 +735,13 @@ static void create_rect(rect *r, vec2f pos, vec2f size, vec4f color,
     glBindBuffer(GL_ARRAY_BUFFER, r->vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, r->ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices,
-                 GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
-                          (void *)NULL);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 }
-
-static void destroy_rect(rect *r) {
+void rect_destroy(rect *r) {
     if (r->vao != 0 && glIsVertexArray(r->vao)) {
         glDeleteVertexArrays(1, &r->vao);
         r->vao = 0;
@@ -720,25 +755,24 @@ static void destroy_rect(rect *r) {
         r->ebo = 0;
     }
 }
-
-static void draw_rect_raw(shader *s, rect *r) {
+void rect_draw_raw(shader *s, rect *r) {
     mat4f transform;
     mat4f_identity(&transform);
 
     mat4f_translate(&transform, (vec3f){r->pos.x, r->pos.y, 0.0f});
-    mat4f_translate(&transform,
-                    (vec3f){r->size.x * 0.5f, r->size.y * 0.5f, 0.0f});
+    mat4f_translate(&transform, (vec3f){r->size.x * 0.5f, r->size.y * 0.5f, 0.0f});
     mat4f_rotate(&transform, math_rad(r->rot), (vec3f){0.0f, 0.0f, 1.0f});
-    mat4f_translate(&transform,
-                    (vec3f){-r->size.x * 0.5f, -r->size.y * 0.5f, 0.0f});
+    mat4f_translate(&transform, (vec3f){-r->size.x * 0.5f, -r->size.y * 0.5f, 0.0f});
 
-    shader_set_mat4f(s, "transform", transform);
-    shader_set_rgba(s, "input_color", r->color);
+    shader_set_mat4f(s, "transform", &transform);
+    shader_set_color(s, "input_color", r->color);
 
     glBindVertexArray(r->vao);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL);
     glBindVertexArray(0);
 }
+
+#endif
 
 // }}}
 
@@ -752,17 +786,23 @@ typedef struct {
     unsigned int vbo, vao;
 } triangle;
 
-static void create_triangle(triangle *t, vec2f pos, vec2f size, vec4f color,
-                            float rot) {
+void triangle_create(triangle *t, vec2f pos, vec2f size, vec4f color, float rot);
+void triangle_destroy(triangle *t);
+void triangle_draw_raw(shader *s, triangle *t);
+
+#ifdef CPL_IMPL
+
+void triangle_create(triangle *t, vec2f pos, vec2f size, vec4f color,
+                     float rot) {
     t->pos = pos;
     t->size = size;
     t->color = color;
     t->rot = rot;
 
     float vertices[9] = {
-        0.0f,          0.0f,   0.0f, //
-        size.x,        0.0f,   0.0f, //
-        size.x / 2.0f, size.y, 0.0f  //
+        0.0f,          0.0f,   0.0f, 
+        size.x,        0.0f,   0.0f, 
+        size.x / 2.0f, size.y, 0.0f  
     };
 
     glGenVertexArrays(1, &t->vao);
@@ -770,14 +810,12 @@ static void create_triangle(triangle *t, vec2f pos, vec2f size, vec4f color,
     glBindVertexArray(t->vao);
     glBindBuffer(GL_ARRAY_BUFFER, t->vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
-                          (void *)NULL);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 }
-
-static void destroy_triangle(triangle *t) {
+void triangle_destroy(triangle *t) {
     if (t->vao != 0 && glIsVertexArray(t->vao)) {
         glDeleteVertexArrays(1, &t->vao);
         t->vao = 0;
@@ -787,25 +825,24 @@ static void destroy_triangle(triangle *t) {
         t->vbo = 0;
     }
 }
-
-static void draw_triangle_raw(shader *s, triangle *t) {
+void triangle_draw_raw(shader *s, triangle *t) {
     mat4f transform;
     mat4f_identity(&transform);
 
     mat4f_translate(&transform, (vec3f){t->pos.x, t->pos.y, 0.0f});
-    mat4f_translate(&transform,
-                    (vec3f){t->size.x * 0.5f, t->size.y * 0.5f, 0.0f});
+    mat4f_translate(&transform, (vec3f){t->size.x * 0.5f, t->size.y * 0.5f, 0.0f});
     mat4f_rotate(&transform, math_rad(t->rot), (vec3f){0.0f, 0.0f, 1.0f});
-    mat4f_translate(&transform,
-                    (vec3f){-t->size.x * 0.5f, -t->size.y * 0.5f, 0.0f});
+    mat4f_translate(&transform, (vec3f){-t->size.x * 0.5f, -t->size.y * 0.5f, 0.0f});
 
-    shader_set_mat4f(s, "transform", transform);
-    shader_set_rgba(s, "input_color", t->color);
+    shader_set_mat4f(s, "transform", &transform);
+    shader_set_color(s, "input_color", t->color);
 
     glBindVertexArray(t->vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
 }
+
+#endif
 
 // }}}
 
@@ -819,7 +856,13 @@ typedef struct {
     int vertex_cnt;
 } circle;
 
-static void create_circle(circle *c, vec2f pos, float radius, vec4f color) {
+void circle_create(circle *c, vec2f pos, float radius, vec4f color);
+void circle_destroy(circle *c);
+void circle_draw_raw(shader *s, circle *c);
+
+#ifdef CPL_IMPL
+
+void circle_create(circle *c, vec2f pos, float radius, vec4f color) {
     c->pos = pos;
     c->color = color;
     c->radius = radius;
@@ -843,17 +886,14 @@ static void create_circle(circle *c, vec2f pos, float radius, vec4f color) {
     glGenBuffers(1, &c->vbo);
     glBindVertexArray(c->vao);
     glBindBuffer(GL_ARRAY_BUFFER, c->vbo);
-    glBufferData(GL_ARRAY_BUFFER, (int)(vertices_size * sizeof(float)),
-                 vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
-                          (void *)NULL);
+    glBufferData(GL_ARRAY_BUFFER, (int)(vertices_size * sizeof(float)), vertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
     free(vertices);
 }
-
-static void destroy_circle(circle *c) {
+void circle_destroy(circle *c) {
     if (c->vao != 0 && glIsVertexArray(c->vao)) {
         glDeleteVertexArrays(1, &c->vao);
         c->vao = 0;
@@ -863,19 +903,20 @@ static void destroy_circle(circle *c) {
         c->vbo = 0;
     }
 }
-
-static void draw_circle_raw(shader *s, circle *c) {
+void circle_draw_raw(shader *s, circle *c) {
     mat4f transform;
     mat4f_identity(&transform);
     mat4f_translate(&transform, (vec3f){c->pos.x, c->pos.y, 0.0f});
 
-    shader_set_mat4f(s, "transform", transform);
-    shader_set_rgba(s, "input_color", c->color);
+    shader_set_mat4f(s, "transform", &transform);
+    shader_set_color(s, "input_color", c->color);
 
     glBindVertexArray(c->vao);
     glDrawArrays(GL_TRIANGLE_FAN, 0, c->vertex_cnt);
     glBindVertexArray(0);
 }
+
+#endif
 
 // }}}
 
@@ -887,14 +928,20 @@ typedef struct {
     unsigned int vao, vbo;
 } line;
 
-static void create_line(line *l, vec2f start, vec2f end, vec4f color) {
+void line_create(line *l, vec2f start, vec2f end, vec4f color);
+void line_destroy(line *l);
+void line_draw_raw(shader *s, line *l);
+
+#ifdef CPL_IMPL
+
+void line_create(line *l, vec2f start, vec2f end, vec4f color) {
     l->start = start;
     l->end = end;
     l->color = color;
 
     float vertices[6] = {
-        start.x, start.y, 0.0f, //
-        end.x,   end.y,   0.0f, //
+        start.x, start.y, 0.0f, 
+        end.x,   end.y,   0.0f, 
     };
 
     glGenVertexArrays(1, &l->vao);
@@ -902,13 +949,12 @@ static void create_line(line *l, vec2f start, vec2f end, vec4f color) {
     glBindVertexArray(l->vao);
     glBindBuffer(GL_ARRAY_BUFFER, l->vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
-                          (void *)NULL);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 }
-static void destroy_line(line *l) {
+void line_destroy(line *l) {
     if (l->vao != 0 && glIsVertexArray(l->vao)) {
         glDeleteVertexArrays(1, &l->vao);
         l->vao = 0;
@@ -918,29 +964,34 @@ static void destroy_line(line *l) {
         l->vbo = 0;
     }
 }
-
-static void draw_line_raw(shader *s, line *l) {
+void line_draw_raw(shader *s, line *l) {
     mat4f transform;
     mat4f_identity(&transform);
     mat4f_translate(&transform, (vec3f){0.0f, 0.0f, 0.0f});
 
-    shader_set_mat4f(s, "transform", transform);
-    shader_set_rgba(s, "input_color", l->color);
+    shader_set_mat4f(s, "transform", &transform);
+    shader_set_color(s, "input_color", l->color);
     glBindVertexArray(l->vao);
     glDrawArrays(GL_LINES, 0, 2);
     glBindVertexArray(0);
 }
 
+#endif
+
 // }}}
 
 // {{{ Texture & Texture2D
 
-typedef enum { FILTER_LINEAR, FILTER_NEAREST } texture_filtering;
+typedef enum { 
+    FILTER_LINEAR = 0, 
+    FILTER_NEAREST 
+} texture_filtering;
 
 typedef struct {
     unsigned int id;
     vec2f size;
 } texture;
+
 typedef struct {
     vec2f pos;
     vec2f size;
@@ -950,15 +1001,21 @@ typedef struct {
     unsigned int vbo, vao, ebo;
 } texture2D;
 
-static void load_texture(texture *t, char *path, texture_filtering filter) {
+void texture_load(texture *t, char *path, texture_filtering filter);
+void texture_unload(texture *t);
+void texture2D_create(texture2D *t, vec2f pos, vec2f size, float rot, vec4f color, texture *tex);
+void texture2D_destroy(texture2D *t);
+void texture2D_draw_raw(shader *s, texture2D *t);
+
+#ifdef CPL_IMPL
+
+void texture_load(texture *t, char *path, texture_filtering filter) {
     glGenTextures(1, &t->id);
     glBindTexture(GL_TEXTURE_2D, t->id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                    filter == FILTER_LINEAR ? GL_LINEAR : GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-                    filter == FILTER_LINEAR ? GL_LINEAR : GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter == FILTER_LINEAR ? GL_LINEAR : GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter == FILTER_LINEAR ? GL_LINEAR : GL_NEAREST);
     stbi_set_flip_vertically_on_load(1);
     int width = 0;
     int height = 0;
@@ -975,23 +1032,19 @@ static void load_texture(texture *t, char *path, texture_filtering filter) {
     if (data) {
         t->size.x = (float)width;
         t->size.y = (float)height;
-        glTexImage2D(GL_TEXTURE_2D, 0, (int)format, (int)t->size.x,
-                     (int)t->size.y, 0, format, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, (int)format, (int)t->size.x, (int)t->size.y, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     } else {
         cpl_log(LOG_ERR, "Failed to load texture");
     }
     stbi_image_free(data);
 }
-
-static void unload_texture(texture *t) {
+void texture_unload(texture *t) {
     if (t->id != 0) {
         glDeleteTextures(1, &t->id);
     }
 }
-
-static void create_texture2D(texture2D *t, vec2f pos, vec2f size, float rot,
-                             vec4f color, texture *tex) {
+void texture2D_create(texture2D *t, vec2f pos, vec2f size, float rot, vec4f color, texture *tex) {
     t->pos = pos;
     t->size = size;
     t->rot = rot;
@@ -999,14 +1052,14 @@ static void create_texture2D(texture2D *t, vec2f pos, vec2f size, float rot,
     t->tex = tex;
 
     float vertices[22] = {
-        size.x, 0.0f,   0.0f, 1.0f, 1.0f, //
-        size.x, size.y, 0.0f, 1.0f, 0.0f, //
-        0.0f,   size.y, 0.0f, 0.0f, 0.0f, //
-        0.0f,   0.0f,   0.0f, 0.0f, 1.0f  //
+        size.x, 0.0f,   0.0f, 1.0f, 1.0f, 
+        size.x, size.y, 0.0f, 1.0f, 0.0f, 
+        0.0f,   size.y, 0.0f, 0.0f, 0.0f, 
+        0.0f,   0.0f,   0.0f, 0.0f, 1.0f  
     };
     unsigned int indices[6] = {
-        0, 1, 3, //
-        1, 2, 3  //
+        0, 1, 3, 
+        1, 2, 3  
     };
 
     glGenVertexArrays(1, &t->vao);
@@ -1016,22 +1069,18 @@ static void create_texture2D(texture2D *t, vec2f pos, vec2f size, float rot,
     glBindBuffer(GL_ARRAY_BUFFER, t->vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, t->ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices,
-                 GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
-                          (void *)NULL);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
-                          (void *)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 }
-
-static void destroy_texture2D(texture2D *t) {
+void texture2D_destroy(texture2D *t) {
     if (t->vao != 0 && glIsVertexArray(t->vao)) {
         glDeleteVertexArrays(1, &t->vao);
         t->vao = 0;
@@ -1046,8 +1095,7 @@ static void destroy_texture2D(texture2D *t) {
     }
     t->tex = NULL;
 }
-
-static void draw_texture2D_raw(shader *s, texture2D *t) {
+void texture2D_draw_raw(shader *s, texture2D *t) {
     mat4f transform;
     mat4f_identity(&transform);
 
@@ -1059,8 +1107,8 @@ static void draw_texture2D_raw(shader *s, texture2D *t) {
                     (vec3f){-t->size.x * 0.5f, -t->size.y * 0.5f, 0.0f});
 
     shader_set_int(s, "tex", 0);
-    shader_set_mat4f(s, "transform", transform);
-    shader_set_rgba(s, "input_color", t->color);
+    shader_set_mat4f(s, "transform", &transform);
+    shader_set_color(s, "input_color", t->color);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, t->tex->id);
@@ -1069,6 +1117,8 @@ static void draw_texture2D_raw(shader *s, texture2D *t) {
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
+
+#endif
 
 // }}}
 
@@ -1087,8 +1137,14 @@ typedef struct {
     letter *letters;
 } font;
 
-static void create_font(font *f, char *path, char *name,
-                        texture_filtering filter) {
+void font_load(font *f, char *path, char *name, texture_filtering filter);
+void font_delete(font *f);
+void text_draw_raw(shader *s, font *f, char *text, vec2f pos, float scale, vec4f color);
+vec2f text_get_size(font *f, char *text, float scale);
+
+#ifdef CPL_IMPL
+
+void font_load(font *f, char *path, char *name, texture_filtering filter) {
     FT_Library ft;
     if (FT_Init_FreeType(&ft)) {
         cpl_log(LOG_ERR, "Could not init FreeType Library");
@@ -1118,24 +1174,19 @@ static void create_font(font *f, char *path, char *name,
         unsigned int tex = 0;
         glGenTextures(1, &tex);
         glBindTexture(GL_TEXTURE_2D, tex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8,
-                     (GLsizei)face->glyph->bitmap.width,
-                     (GLsizei)face->glyph->bitmap.rows, 0, GL_RED,
-                     GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, (GLsizei)face->glyph->bitmap.width, (GLsizei)face->glyph->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                        filter == FILTER_LINEAR ? GL_LINEAR : GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-                        filter == FILTER_LINEAR ? GL_LINEAR : GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter == FILTER_LINEAR ? GL_LINEAR : GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter == FILTER_LINEAR ? GL_LINEAR : GL_NEAREST);
 
-        letter character = {.id = tex,
-                            .size = {(float)face->glyph->bitmap.width,
-                                     (float)face->glyph->bitmap.rows},
-                            .bearing = {(float)face->glyph->bitmap_left,
-                                        (float)face->glyph->bitmap_top},
-                            .advance = face->glyph->advance.x};
+        letter character = {
+            .id = tex,
+            .size = {(float)face->glyph->bitmap.width, (float)face->glyph->bitmap.rows},
+            .bearing = {(float)face->glyph->bitmap_left, (float)face->glyph->bitmap_top},
+            .advance = face->glyph->advance.x
+        };
         vec_push(f->letters, character);
     }
     f->name = name;
@@ -1156,8 +1207,7 @@ static void create_font(font *f, char *path, char *name,
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
 }
-
-static void delete_font(font *f) {
+void font_delete(font *f) {
     if (f->vao != 0 && glIsVertexArray(f->vao)) {
         glDeleteVertexArrays(1, &f->vao);
         f->vao = 0;
@@ -1171,9 +1221,7 @@ static void delete_font(font *f) {
     }
     vec_destroy(f->letters);
 }
-
-static void draw_text_raw(shader *s, font *f, char *text, vec2f pos,
-                          float scale, vec4f color) {
+void text_draw_raw(shader *s, font *f, char *text, vec2f pos, float scale, vec4f color) {
     shader_set_vec3f(s, "text_color", (vec3f){color.r, color.g, color.b});
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(f->vao);
@@ -1182,18 +1230,19 @@ static void draw_text_raw(shader *s, font *f, char *text, vec2f pos,
         letter *l = &f->letters[text[i]];
 
         float x_pos = pos.x + (l->bearing.x * scale);
-        float y_pos =
-            pos.y + ((f->letters['H'].bearing.y - l->bearing.y) * scale);
+        float y_pos = pos.y + ((f->letters['H'].bearing.y - l->bearing.y) * scale);
         float width = l->size.x * scale;
         float height = l->size.y * scale;
 
-        float vertices[6][4] = {{x_pos, y_pos + height, 0.0f, 1.0f},
-                                {x_pos, y_pos, 0.0f, 0.0f},
-                                {x_pos + width, y_pos, 1.0f, 0.0f},
+        float vertices[6][4] = {
+            {x_pos, y_pos + height, 0.0f, 1.0f},
+            {x_pos, y_pos, 0.0f, 0.0f},
+            {x_pos + width, y_pos, 1.0f, 0.0f},
 
-                                {x_pos, y_pos + height, 0.0f, 1.0f},
-                                {x_pos + width, y_pos, 1.0f, 0.0f},
-                                {x_pos + width, y_pos + height, 1.0f, 1.0f}};
+            {x_pos, y_pos + height, 0.0f, 1.0f},
+            {x_pos + width, y_pos, 1.0f, 0.0f},
+            {x_pos + width, y_pos + height, 1.0f, 1.0f}
+        };
 
         glBindTexture(GL_TEXTURE_2D, l->id);
         glBindBuffer(GL_ARRAY_BUFFER, f->vbo);
@@ -1207,15 +1256,13 @@ static void draw_text_raw(shader *s, font *f, char *text, vec2f pos,
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
-
-static vec2f get_text_size(font *f, char *text, float scale) {
+vec2f text_get_size(font *f, char *text, float scale) {
     float width = 0.0f;
     float height = 0.0f;
     float max_above_base = 0.0f;
     float max_below_base = 0.0f;
 
     for (unsigned int i = 0; i < strlen(text); i++) {
-
         letter *l = &f->letters[text[i]];
         float h = l->size.y * scale;
         max_above_base = math_max(max_above_base, l->bearing.y * scale);
@@ -1226,6 +1273,8 @@ static vec2f get_text_size(font *f, char *text, float scale) {
     return (vec2f){width, height};
 }
 
+#endif
+
 // }}}
 
 // {{{ Networking
@@ -1235,11 +1284,17 @@ typedef enum {
     NET_PACKET_UNRELIABLE = 8
 } net_packet_flags;
 
-typedef enum : uint8_t { NET_PACKET_AUDIO_VOICE_MSG = -1 } net_packet_id;
+typedef enum : uint8_t { 
+    NET_PACKET_AUDIO_VOICE_MSG = -1 
+} net_packet_id;
 
 #define NET_SEC(s) ((s) * 1000)
 
-static pthread_mutex_t net_mutex = PTHREAD_MUTEX_INITIALIZER;
+#ifdef CPL_IMPL
+
+pthread_mutex_t _net_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+#endif
 
 // {{{ Client
 
@@ -1250,57 +1305,60 @@ typedef struct {
     ENetPeer *peer;
 } client_t;
 
-static bool _net_worker_running = true;
-static ENetHost *_host = NULL;
-static void (*_parse_func)(char *, size_t, void *) = NULL;
-static void *_parse_arg = NULL;
-static pthread_t _net_worker;
+#ifdef CPL_IMPL
 
-static void *_net_worker_loop() {
+bool _net_worker_running = true;
+ENetHost *_host = NULL;
+void (*_parse_func)(char *, size_t, void *) = NULL;
+void *_parse_arg = NULL;
+pthread_t _net_worker;
+
+#endif
+
+void *_client_net_worker_loop();
+void client_create_worker_loop(client_t *client, void (*parse_data)(char *, size_t, void *), void *parse_data_arg);
+void client_destroy_worker_loop();
+bool client_create(client_t *client, char *ip, int port, int wait_ms);
+void client_destroy(client_t *client, int wait_ms);
+
+#ifdef CPL_IMPL
+
+void *_client_net_worker_loop() {
     while (_net_worker_running) {
         ENetEvent event;
-        pthread_mutex_lock(&net_mutex);
+        pthread_mutex_lock(&_net_mutex);
         if (enet_host_service(_host, &event, 0) > 0) {
             if (event.type == ENET_EVENT_TYPE_RECEIVE) {
-                _parse_func((char *)event.packet->data,
-                            event.packet->dataLength, _parse_arg);
+                _parse_func((char *)event.packet->data, event.packet->dataLength, _parse_arg);
                 enet_packet_destroy(event.packet);
             }
         }
 
         while (enet_host_check_events(_host, &event) > 0) {
             if (event.type == ENET_EVENT_TYPE_RECEIVE) {
-                _parse_func((char *)event.packet->data,
-                            event.packet->dataLength, _parse_arg);
+                _parse_func((char *)event.packet->data, event.packet->dataLength, _parse_arg);
                 enet_packet_destroy(event.packet);
             }
         }
 
-        pthread_mutex_unlock(&net_mutex);
+        pthread_mutex_unlock(&_net_mutex);
 
         struct timespec ts = {0, 500000};
         nanosleep(&ts, NULL);
     }
-
     return NULL;
 }
-
-static void client_create_worker_loop(client_t *client,
-                                      void (*parse_data)(char *, size_t,
-                                                         void *),
-                                      void *parse_data_arg) {
+void client_create_worker_loop(client_t *client, void (*parse_data)(char *, size_t, void *), void *parse_data_arg) {
     _host = client->client;
     _parse_func = parse_data;
     _parse_arg = parse_data_arg;
-    pthread_create(&_net_worker, NULL, _net_worker_loop, NULL);
+    pthread_create(&_net_worker, NULL, _client_net_worker_loop, NULL);
 }
-
-static void client_destroy_worker_loop() {
+void client_destroy_worker_loop() {
     _net_worker_running = false;
     pthread_join(_net_worker, NULL);
 }
-
-static bool client_create(client_t *client, char *ip, int port, int wait_ms) {
+bool client_create(client_t *client, char *ip, int port, int wait_ms) {
     if (enet_initialize()) {
         fprintf(stderr, "Failed to init ENet\n");
         exit(-1);
@@ -1328,15 +1386,13 @@ static bool client_create(client_t *client, char *ip, int port, int wait_ms) {
         exit(-1);
     }
 
-    if (enet_host_service(client->client, &client->event, wait_ms) > 0 &&
-        client->event.type == ENET_EVENT_TYPE_CONNECT) {
+    if (enet_host_service(client->client, &client->event, wait_ms) > 0 && client->event.type == ENET_EVENT_TYPE_CONNECT) {
         return true;
     }
     enet_peer_reset(client->peer);
     return false;
 }
-
-static void client_destroy(client_t *client, int wait_ms) {
+void client_destroy(client_t *client, int wait_ms) {
     enet_peer_disconnect(client->peer, 0);
     while (enet_host_service(client->client, &client->event, wait_ms) > 0) {
         if (client->event.type == ENET_EVENT_TYPE_RECEIVE) {
@@ -1347,6 +1403,8 @@ static void client_destroy(client_t *client, int wait_ms) {
     }
 }
 
+#endif
+
 // }}}
 
 // {{{ Server
@@ -1356,8 +1414,12 @@ typedef struct {
     ENetAddress address;
 } server_t;
 
-static void server_init(server_t *server, int port, struct in6_addr host,
-                        int max_clients) {
+void server_init(server_t *server, int port, struct in6_addr host, int max_clients);
+void server_destroy(server_t *server);
+
+#ifdef CPL_IMPL
+
+void server_init(server_t *server, int port, struct in6_addr host, int max_clients) {
     if (enet_initialize()) {
         fprintf(stderr, "Failed to init ENet\n");
         exit(-1);
@@ -1373,25 +1435,76 @@ static void server_init(server_t *server, int port, struct in6_addr host,
         exit(-1);
     }
 }
-
-static void server_destroy(server_t *server) {
+void server_destroy(server_t *server) {
     enet_host_destroy(server->server);
 }
+
+#endif
 
 // }}}
 
 // {{{ Packets
 
+// {{{ Writer
+
 typedef struct {
-    uint8_t data[1024 * 5]; // 5 KiB
+    uint8_t data[KiB(5)];
     size_t size;
 } packet_writer;
 
-typedef struct {
-    uint8_t *data;
-    size_t size;
-    size_t capacity;
-} packet_writer_alloced;
+void packet_writer_init(packet_writer *writer, uint8_t packet_id);
+void packet_write_char(packet_writer *writer, char val);
+void packet_write_int(packet_writer *writer, int val);
+void packet_write_uint(packet_writer *writer, unsigned int val);
+void packet_write_ulong(packet_writer *writer, unsigned long val);
+void packet_write_float(packet_writer *writer, float val);
+void packet_write_double(packet_writer *writer, double val);
+void packet_write_bool(packet_writer *writer, bool val);
+void packet_write_array(packet_writer *writer, void *arr, size_t total_size);
+
+#ifdef CPL_IMPL
+
+void packet_writer_init(packet_writer *writer, uint8_t packet_id) {
+    writer->data[0] = packet_id;
+    writer->size = 1;
+}
+void packet_write_char(packet_writer *writer, char val) {
+    writer->data[writer->size++] = val;
+}
+void packet_write_int(packet_writer *writer, int val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(int));
+    writer->size += sizeof(int);
+}
+void packet_write_uint(packet_writer *writer, unsigned int val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(unsigned int));
+    writer->size += sizeof(unsigned int);
+}
+void packet_write_ulong(packet_writer *writer, unsigned long val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(unsigned long));
+    writer->size += sizeof(unsigned long);
+}
+void packet_write_float(packet_writer *writer, float val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(float));
+    writer->size += sizeof(float);
+}
+void packet_write_double(packet_writer *writer, double val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(double));
+    writer->size += sizeof(double);
+}
+void packet_write_bool(packet_writer *writer, bool val) {
+    memcpy(&writer->data[writer->size], &val, sizeof(bool));
+    writer->size += sizeof(bool);
+}
+void packet_write_array(packet_writer *writer, void *arr, size_t total_size) {
+    memcpy(&writer->data[writer->size], arr, total_size);
+    writer->size += total_size;
+}
+
+#endif
+
+// }}}
+
+// {{{ Reader
 
 typedef struct {
     uint8_t *data;
@@ -1399,248 +1512,101 @@ typedef struct {
     size_t pos;
 } packet_reader;
 
-static void packet_writer_init(packet_writer *writer, uint8_t packet_id) {
-    writer->data[0] = packet_id;
-    writer->size = 1;
-}
+uint8_t packet_reader_init(packet_reader *reader, uint8_t *data, size_t size);
+char packet_read_char(packet_reader *reader);
+int packet_read_int(packet_reader *reader);
+unsigned int packet_read_uint(packet_reader *reader);
+unsigned long packet_read_ulong(packet_reader *reader);
+float packet_read_float(packet_reader *reader);
+double packet_read_double(packet_reader *reader);
+bool packet_read_bool(packet_reader *reader);
+void *packet_read_array(packet_reader *reader, size_t total_size);
 
-static void packet_write_char(packet_writer *writer, char val) {
-    writer->data[writer->size++] = val;
-}
+#ifdef CPL_IMPL
 
-static void packet_write_int(packet_writer *writer, int val) {
-    memcpy(&writer->data[writer->size], &val, sizeof(int));
-    writer->size += sizeof(int);
-}
-
-static void packet_write_uint(packet_writer *writer, unsigned int val) {
-    memcpy(&writer->data[writer->size], &val, sizeof(unsigned int));
-    writer->size += sizeof(unsigned int);
-}
-
-static void packet_write_ulong(packet_writer *writer, unsigned long val) {
-    memcpy(&writer->data[writer->size], &val, sizeof(unsigned long));
-    writer->size += sizeof(unsigned long);
-}
-
-static void packet_write_float(packet_writer *writer, float val) {
-    memcpy(&writer->data[writer->size], &val, sizeof(float));
-    writer->size += sizeof(float);
-}
-
-static void packet_write_double(packet_writer *writer, double val) {
-    memcpy(&writer->data[writer->size], &val, sizeof(double));
-    writer->size += sizeof(double);
-}
-
-static void packet_write_bool(packet_writer *writer, bool val) {
-    memcpy(&writer->data[writer->size], &val, sizeof(bool));
-    writer->size += sizeof(bool);
-}
-
-static void packet_write_array(packet_writer *writer, void *arr,
-                               size_t total_size) {
-    memcpy(&writer->data[writer->size], arr, total_size);
-    writer->size += total_size;
-}
-
-static void _packet_writer_alloced_check_capacity(packet_writer_alloced *writer,
-                                                  size_t additional_bytes) {
-    if (writer->size + additional_bytes > writer->capacity) {
-        while (writer->size + additional_bytes > writer->capacity) {
-            writer->capacity *= 2;
-        }
-        uint8_t *new_data = realloc(writer->data, writer->capacity);
-        if (new_data) {
-            writer->data = new_data;
-        }
-    }
-}
-
-static void packet_writer_alloced_init(packet_writer_alloced *writer,
-                                       uint8_t packet_id) {
-    writer->capacity = 256;
-    writer->size = 1;
-    writer->data = malloc(writer->capacity);
-    writer->data[0] = packet_id;
-}
-
-static void packet_write_char_alloced(packet_writer_alloced *writer, char val) {
-    _packet_writer_alloced_check_capacity(writer, 1);
-    writer->data[writer->size++] = val;
-}
-
-static void packet_write_int_alloced(packet_writer_alloced *writer, int val) {
-    _packet_writer_alloced_check_capacity(writer, sizeof(int));
-    memcpy(&writer->data[writer->size], &val, sizeof(int));
-    writer->size += sizeof(int);
-}
-
-static void packet_write_uint_alloced(packet_writer_alloced *writer,
-                                      unsigned int val) {
-    _packet_writer_alloced_check_capacity(writer, sizeof(unsigned int));
-    memcpy(&writer->data[writer->size], &val, sizeof(unsigned int));
-    writer->size += sizeof(unsigned int);
-}
-
-static void packet_write_ulong_alloced(packet_writer_alloced *writer,
-                                       unsigned long val) {
-    _packet_writer_alloced_check_capacity(writer, sizeof(unsigned long));
-    memcpy(&writer->data[writer->size], &val, sizeof(unsigned long));
-    writer->size += sizeof(unsigned long);
-}
-
-static void packet_write_float_alloced(packet_writer_alloced *writer,
-                                       float val) {
-    _packet_writer_alloced_check_capacity(writer, sizeof(float));
-    memcpy(&writer->data[writer->size], &val, sizeof(float));
-    writer->size += sizeof(float);
-}
-
-static void packet_write_double_alloced(packet_writer_alloced *writer,
-                                        double val) {
-    _packet_writer_alloced_check_capacity(writer, sizeof(double));
-    memcpy(&writer->data[writer->size], &val, sizeof(double));
-    writer->size += sizeof(double);
-}
-
-static void packet_write_bool_alloced(packet_writer_alloced *writer, bool val) {
-    _packet_writer_alloced_check_capacity(writer, sizeof(bool));
-    memcpy(&writer->data[writer->size], &val, sizeof(bool));
-    writer->size += sizeof(bool);
-}
-
-static void packet_write_array_alloced(packet_writer_alloced *writer, void *arr,
-                                       size_t total_size) {
-    _packet_writer_alloced_check_capacity(writer, total_size);
-    memcpy(&writer->data[writer->size], arr, total_size);
-    writer->size += total_size;
-}
-
-static void packet_writer_alloced_destroy(packet_writer_alloced *writer) {
-    free(writer->data);
-}
-
-static uint8_t packet_reader_init(packet_reader *reader, uint8_t *data,
-                                  size_t size) {
+uint8_t packet_reader_init(packet_reader *reader, uint8_t *data, size_t size) {
     reader->data = data;
     reader->size = size;
     reader->pos = 0;
-
     return reader->data[reader->pos++];
 }
-
-static char packet_read_char(packet_reader *reader) {
+char packet_read_char(packet_reader *reader) {
     return (char)reader->data[reader->pos++];
 }
-
-static int packet_read_int(packet_reader *reader) {
+int packet_read_int(packet_reader *reader) {
     int val = 0;
     memcpy(&val, &reader->data[reader->pos], sizeof(int));
     reader->pos += sizeof(int);
     return val;
 }
-
-static unsigned int packet_read_uint(packet_reader *reader) {
+unsigned int packet_read_uint(packet_reader *reader) {
     unsigned int val = 0;
     memcpy(&val, &reader->data[reader->pos], sizeof(unsigned int));
     reader->pos += sizeof(unsigned int);
     return val;
 }
-
-static unsigned long packet_read_ulong(packet_reader *reader) {
+unsigned long packet_read_ulong(packet_reader *reader) {
     unsigned long val = 0;
     memcpy(&val, &reader->data[reader->pos], sizeof(unsigned long));
     reader->pos += sizeof(unsigned long);
     return val;
 }
-
-static float packet_read_float(packet_reader *reader) {
+float packet_read_float(packet_reader *reader) {
     float val = 0;
     memcpy(&val, &reader->data[reader->pos], sizeof(float));
     reader->pos += sizeof(float);
     return val;
 }
-
-static double packet_read_double(packet_reader *reader) {
+double packet_read_double(packet_reader *reader) {
     double val = 0;
     memcpy(&val, &reader->data[reader->pos], sizeof(double));
     reader->pos += sizeof(double);
     return val;
 }
-
-static bool packet_read_bool(packet_reader *reader) {
+bool packet_read_bool(packet_reader *reader) {
     bool val = 0;
     memcpy(&val, &reader->data[reader->pos], sizeof(bool));
     reader->pos += sizeof(bool);
     return val;
 }
-
-static void *packet_read_array(packet_reader *reader, size_t total_size) {
+void *packet_read_array(packet_reader *reader, size_t total_size) {
     void *arr = malloc(total_size);
     memcpy(arr, &reader->data[reader->pos], total_size);
     reader->pos += total_size;
     return arr;
 }
 
-static void send_packet_to_server(client_t *client, packet_writer *writer,
-                                  int packet_flag) {
+#endif
+
+// }}}
+
+void packet_send_to_server(client_t *client, packet_writer *writer, int packet_flag);
+void packet_send_to_client(ENetPeer *peer, packet_writer *writer, int packet_flag);
+void packet_broadcast(server_t *server, packet_writer *writer, int packet_flag);
+
+#ifdef CPL_IMPL
+
+void packet_send_to_server(client_t *client, packet_writer *writer, int packet_flag) {
     if (client->peer->state != ENET_PEER_STATE_CONNECTED) {
         return;
     }
-    pthread_mutex_lock(&net_mutex);
-    ENetPacket *packet =
-        enet_packet_create(writer->data, writer->size, packet_flag);
+    pthread_mutex_lock(&_net_mutex);
+    ENetPacket *packet = enet_packet_create(writer->data, writer->size, packet_flag);
     if (enet_peer_send(client->peer, 0, packet) < 0) {
         enet_packet_destroy(packet);
     }
-    pthread_mutex_unlock(&net_mutex);
+    pthread_mutex_unlock(&_net_mutex);
 }
-
-static void send_packet_to_client(ENetPeer *peer, packet_writer *writer,
-                                  int packet_flag) {
-    ENetPacket *packet =
-        enet_packet_create(writer->data, writer->size, packet_flag);
+void packet_send_to_client(ENetPeer *peer, packet_writer *writer, int packet_flag) {
+    ENetPacket *packet = enet_packet_create(writer->data, writer->size, packet_flag);
     enet_peer_send(peer, 0, packet);
 }
-
-static void broadcast_packet(server_t *server, packet_writer *writer,
-                             int packet_flag) {
-    ENetPacket *packet =
-        enet_packet_create(writer->data, writer->size, packet_flag);
+void packet_broadcast(server_t *server, packet_writer *writer, int packet_flag) {
+    ENetPacket *packet = enet_packet_create(writer->data, writer->size, packet_flag);
     enet_host_broadcast(server->server, 0, packet);
 }
 
-static void send_packet_to_server_alloced(client_t *client,
-                                          packet_writer_alloced *writer,
-                                          int packet_flag) {
-    if (client->peer->state != ENET_PEER_STATE_CONNECTED) {
-        return;
-    }
-    pthread_mutex_lock(&net_mutex);
-    ENetPacket *packet =
-        enet_packet_create(writer->data, writer->size, packet_flag);
-    if (enet_peer_send(client->peer, 0, packet) < 0) {
-        enet_packet_destroy(packet);
-    }
-    pthread_mutex_unlock(&net_mutex);
-}
-
-static void send_packet_to_client_alloced(ENetPeer *peer,
-                                          packet_writer_alloced *writer,
-                                          int packet_flag) {
-    ENetPacket *packet =
-        enet_packet_create(writer->data, writer->size, packet_flag);
-    enet_peer_send(peer, 0, packet);
-}
-
-static void broadcast_packet_alloced(server_t *server,
-                                     packet_writer_alloced *writer,
-                                     int packet_flag) {
-    ENetPacket *packet =
-        enet_packet_create(writer->data, writer->size, packet_flag);
-    enet_host_broadcast(server->server, 0, packet);
-}
+#endif
 
 // }}}
 
@@ -1654,13 +1620,13 @@ typedef struct {
     float pitch;
 } audio;
 
-static ma_engine _audio_engine;
-static ma_sound *_music;
-static ma_sound **_active_sounds;
-static unsigned int _active_sounds_size;
-static unsigned int _active_sounds_cap;
+#ifdef CPL_IMPL
 
-#ifdef CPL_IMPLEMENTATION
+ma_engine _audio_engine;
+ma_sound *_music;
+ma_sound **_active_sounds;
+unsigned int _active_sounds_size;
+unsigned int _active_sounds_cap;
 
 bool _muted;
 bool _voice_chat_ready;
@@ -1672,7 +1638,26 @@ ma_device _capture_device;
 
 #endif
 
-static void audio_init() {
+void audio_init();
+audio audio_load(char *path);
+void audio_update();
+void audio_play_sound(audio *a);
+void audio_play_music(audio *a);
+void audio_pause_music();
+void audio_resume_music();
+void audio_stop_music();
+void audio_close();
+
+void _audio_microphone_callback(ma_device *device, void *out, const void *in, unsigned int frame_cnt);
+void audio_server_broadcast_voice_msg(packet_reader *reader, server_t *server);
+void audio_client_handle_voice_msg(packet_reader *reader);
+void _audio_playback_callback(ma_device *device, void *out, const void *in, unsigned int frame_cnt);
+void audio_muted(bool enable);
+void audio_init_voice_chat(client_t *client, int *id);
+
+#ifdef CPL_IMPL
+
+void audio_init() {
     if (ma_engine_init(NULL, &_audio_engine) != MA_SUCCESS) {
         cpl_log(LOG_ERR, "Failed to init audio!");
         exit(-1);
@@ -1682,10 +1667,8 @@ static void audio_init() {
     _active_sounds = malloc(_active_sounds_cap * sizeof(ma_sound *));
     _music = NULL;
 }
-
-static audio audio_load(char *path) { return (audio){path, 1.0f, 1.0f}; }
-
-static void audio_update() {
+audio audio_load(char *path) { return (audio){path, 1.0f, 1.0f}; }
+void audio_update() {
     unsigned int w = 0;
     for (unsigned int i = 0; i < _active_sounds_size; i++) {
         if (ma_sound_is_playing(_active_sounds[i])) {
@@ -1697,8 +1680,7 @@ static void audio_update() {
     }
     _active_sounds_size = w;
 }
-
-static void audio_play_sound(audio *a) {
+void audio_play_sound(audio *a) {
     ma_sound *sound = malloc(sizeof(ma_sound));
     if (ma_sound_init_from_file(&_audio_engine, a->path, MA_SOUND_FLAG_DECODE,
                                 NULL, NULL, sound) != MA_SUCCESS) {
@@ -1723,20 +1705,53 @@ static void audio_play_sound(audio *a) {
     }
     _active_sounds[_active_sounds_size++] = sound;
 }
+void audio_play_music(audio *a) {
+    if (_music) {
+        ma_sound_stop(_music);
+        ma_sound_uninit(_music);
+        free(_music);
+        _music = NULL;
+    }
+    _music = malloc(sizeof(ma_sound));
+    if (ma_sound_init_from_file(&_audio_engine, a->path, MA_SOUND_FLAG_DECODE,
+                NULL, NULL, _music) != MA_SUCCESS) {
+        cpl_log(LOG_ERR, "Failed to load music!");
+        free(_music);
+        _music = NULL;
+        return;
+    }
+    ma_sound_set_pitch(_music, a->pitch);
+    ma_sound_set_looping(_music, MA_TRUE);
+    ma_sound_start(_music);
+}
+void audio_pause_music() {
+    if (_music) {
+        ma_sound_stop(_music);
+    }
+}
+void audio_resume_music() {
+    if (_music) {
+        ma_sound_start(_music);
+    }
+}
+void audio_stop_music() {
+    if (_music) {
+        ma_sound_stop(_music);
+        ma_sound_seek_to_pcm_frame(_music, 0);
+    }
+}
+void audio_close() {
+    audio_update();
+    free(_active_sounds);
+    if (_music) {
+        ma_sound_stop(_music);
+        ma_sound_uninit(_music);
+        free(_music);
+    }
+    ma_engine_uninit(&_audio_engine);
+}
 
-void _audio_microphone_callback(ma_device *device, void *out, const void *in,
-                                unsigned int frame_cnt);
-void audio_server_broadcast_voice_msg(packet_reader *reader, server_t *server);
-void audio_client_handle_voice_msg(packet_reader *reader);
-void _audio_playback_callback(ma_device *device, void *out, const void *in,
-                              unsigned int frame_cnt);
-void audio_muted(bool enable);
-void audio_init_voice_chat(client_t *client, int *id);
-
-#ifdef CPL_IMPLEMENTATION
-
-void _audio_microphone_callback(ma_device *device, void *out, const void *in,
-                                unsigned int frame_cnt) {
+void _audio_microphone_callback(ma_device *device, void *out, const void *in, unsigned int frame_cnt) {
     (void)device;
     (void)out;
     if (_muted || !in) {
@@ -1750,9 +1765,8 @@ void _audio_microphone_callback(ma_device *device, void *out, const void *in,
     packet_write_int(&writer, *_id);
     packet_write_uint(&writer, frame_cnt);
     packet_write_array(&writer, samples, frame_cnt * sizeof(float));
-    send_packet_to_server(_client, &writer, NET_PACKET_UNRELIABLE);
+    packet_send_to_server(_client, &writer, NET_PACKET_UNRELIABLE);
 }
-
 void audio_server_broadcast_voice_msg(packet_reader *reader, server_t *server) {
     int id = packet_read_int(reader);
     unsigned int frame_cnt = packet_read_uint(reader);
@@ -1765,11 +1779,10 @@ void audio_server_broadcast_voice_msg(packet_reader *reader, server_t *server) {
     packet_write_uint(&writer, frame_cnt);
     packet_write_array(&writer, samples, frame_cnt * sizeof(float));
 
-    broadcast_packet(server, &writer, NET_PACKET_UNRELIABLE);
+    packet_broadcast(server, &writer, NET_PACKET_UNRELIABLE);
 
     free(samples);
 }
-
 void audio_client_handle_voice_msg(packet_reader *reader) {
     if (!_voice_chat_ready) {
         return;
@@ -1799,9 +1812,7 @@ void audio_client_handle_voice_msg(packet_reader *reader) {
 
     free(samples);
 }
-
-void _audio_playback_callback(ma_device *device, void *out, const void *in,
-                              unsigned int frame_cnt) {
+void _audio_playback_callback(ma_device *device, void *out, const void *in, unsigned int frame_cnt) {
     (void)in;
 
     float *out_buffer = (float *)out;
@@ -1836,9 +1847,7 @@ void _audio_playback_callback(ma_device *device, void *out, const void *in,
         total_frames_read += frames_to_read;
     }
 }
-
 void audio_muted(bool enable) { _muted = enable; }
-
 void audio_init_voice_chat(client_t *client, int *id) {
     _client = client;
     _id = id;
@@ -1852,8 +1861,7 @@ void audio_init_voice_chat(client_t *client, int *id) {
     playback_config.playback.channels = 2;
     playback_config.sampleRate = 48000;
     playback_config.dataCallback = _audio_playback_callback;
-    if (ma_device_init(NULL, &playback_config, &_playback_device) !=
-        MA_SUCCESS) {
+    if (ma_device_init(NULL, &playback_config, &_playback_device) != MA_SUCCESS) {
         cpl_log(LOG_ERR, "Failed to init playback device!");
         return;
     }
@@ -1866,7 +1874,7 @@ void audio_init_voice_chat(client_t *client, int *id) {
     capture_config.capture.channels = 1;
     capture_config.sampleRate = 48000;
     capture_config.dataCallback = _audio_microphone_callback;
-    if (ma_device_init(NULL, &capture_config, &_capture_device) != MA_SUCCESS) {
+    if (ma_device_init(NULL, &capture_config, &_capture_device) != MA_SUCCESS) { 
         cpl_log(LOG_ERR, "Failed to init microphone!");
         return;
     }
@@ -1877,56 +1885,6 @@ void audio_init_voice_chat(client_t *client, int *id) {
 
 #endif
 
-static void audio_play_music(audio *a) {
-    if (_music) {
-        ma_sound_stop(_music);
-        ma_sound_uninit(_music);
-        free(_music);
-        _music = NULL;
-    }
-    _music = malloc(sizeof(ma_sound));
-    if (ma_sound_init_from_file(&_audio_engine, a->path, MA_SOUND_FLAG_DECODE,
-                                NULL, NULL, _music) != MA_SUCCESS) {
-        cpl_log(LOG_ERR, "Failed to load music!");
-        free(_music);
-        _music = NULL;
-        return;
-    }
-    ma_sound_set_pitch(_music, a->pitch);
-    ma_sound_set_looping(_music, MA_TRUE);
-    ma_sound_start(_music);
-}
-
-static void audio_pause_music() {
-    if (_music) {
-        ma_sound_stop(_music);
-    }
-}
-
-static void audio_resume_music() {
-    if (_music) {
-        ma_sound_start(_music);
-    }
-}
-
-static void audio_stop_music() {
-    if (_music) {
-        ma_sound_stop(_music);
-        ma_sound_seek_to_pcm_frame(_music, 0);
-    }
-}
-
-static void audio_close() {
-    audio_update();
-    free(_active_sounds);
-    if (_music) {
-        ma_sound_stop(_music);
-        ma_sound_uninit(_music);
-        free(_music);
-    }
-    ma_engine_uninit(&_audio_engine);
-}
-
 // }}}
 
 // {{{ Screen Quad
@@ -1936,7 +1894,15 @@ typedef struct {
     unsigned int vbo, vao, rbo, framebuffer, tex_color_buffer;
 } screen_quad;
 
-static void create_screen_quad(screen_quad *q, int width, int height) {
+void screen_quad_create(screen_quad *q, int width, int height);
+void screen_quad_resize(screen_quad *q, int width, int height);
+void screen_quad_bind(screen_quad *q);
+void screen_quad_unbind();
+void screen_quad_draw(screen_quad *q, shader *s);
+
+#ifdef CPL_IMPL
+
+void screen_quad_create(screen_quad *q, int width, int height) {
     q->size = (vec2f){(float)width, (float)height};
 
     float vertices[30] = {-1.0f, 1.0f, 0.0f, 0.0f,  1.0f, -1.0f, -1.0f, 0.0f,
@@ -1951,30 +1917,24 @@ static void create_screen_quad(screen_quad *q, int width, int height) {
     glBindBuffer(GL_ARRAY_BUFFER, q->vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
-                          (void *)NULL);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
-                          (void *)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
 
     glGenFramebuffers(1, &q->framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, q->framebuffer);
 
     glGenTextures(1, &q->tex_color_buffer);
     glBindTexture(GL_TEXTURE_2D, q->tex_color_buffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (int)q->size.x, (int)q->size.y, 0,
-                 GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (int)q->size.x, (int)q->size.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           q->tex_color_buffer, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, q->tex_color_buffer, 0);
 
     glGenRenderbuffers(1, &q->rbo);
     glBindRenderbuffer(GL_RENDERBUFFER, q->rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, (int)q->size.x,
-                          (int)q->size.y);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-                              GL_RENDERBUFFER, q->rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, (int)q->size.x, (int)q->size.y);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, q->rbo);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         cpl_log(LOG_ERR, "Framebuffer is not complete!");
@@ -1982,8 +1942,7 @@ static void create_screen_quad(screen_quad *q, int width, int height) {
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
-
-static void screen_quad_resize(screen_quad *q, int width, int height) {
+void screen_quad_resize(screen_quad *q, int width, int height) {
     q->size = (vec2f){(float)width, (float)height};
 
     glBindTexture(GL_TEXTURE_2D, q->tex_color_buffer);
@@ -1996,22 +1955,22 @@ static void screen_quad_resize(screen_quad *q, int width, int height) {
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 }
-
-static void screen_quad_bind(screen_quad *q) {
+void screen_quad_bind(screen_quad *q) {
     glBindFramebuffer(GL_FRAMEBUFFER, q->framebuffer);
 }
-static void screen_quad_unbind() {
+void screen_quad_unbind() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
-
-static void screen_quad_draw(screen_quad *q, shader *s) {
-    use_shader(s);
+void screen_quad_draw(screen_quad *q, shader *s) {
+    shader_use(s);
     glBindVertexArray(q->vao);
     glBindTexture(GL_TEXTURE_2D, q->tex_color_buffer);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
+
+#endif
 
 // }}}
 
@@ -2021,16 +1980,26 @@ typedef struct {
     vec2f pos;
     vec2f size;
 } rect_collider;
+
 typedef struct {
     vec2f pos;
     vec2f size;
 } triangle_collider;
+
 typedef struct {
     vec2f pos;
     float radius;
 } circle_collider;
 
-static bool check_collision_rects(rect_collider a, rect_collider b) {
+bool check_collision_rects(rect_collider a, rect_collider b);
+bool check_collision_circle_rect(circle_collider a, rect_collider b);
+bool check_collision_vec2f_rect(vec2f a, rect_collider b);
+bool check_collision_circles(circle_collider a, circle_collider b);
+bool check_collision_vec2f_circle(vec2f a, circle_collider b);
+
+#ifdef CPL_IMPL
+
+bool check_collision_rects(rect_collider a, rect_collider b) {
     bool collision_x =
         a.pos.x + a.size.x >= b.pos.x && b.pos.x + b.size.x >= a.pos.x;
     bool collision_y =
@@ -2038,51 +2007,62 @@ static bool check_collision_rects(rect_collider a, rect_collider b) {
 
     return collision_x && collision_y;
 }
-
-static bool check_collision_circle_rect(circle_collider a, rect_collider b) {
+bool check_collision_circle_rect(circle_collider a, rect_collider b) {
     vec2f circle_center = a.pos;
     vec2f rect_center =
         vec2f_add(b.pos, VEC2F(b.size.x * 0.5f, b.size.y * 0.5f));
     vec2f half_extents = VEC2F(b.size.x * 0.5f, b.size.y * 0.5f);
     vec2f difference = vec2f_sub(circle_center, rect_center);
-    vec2f clamped = vec2f_clamp(
-        difference, VEC2F(-half_extents.x, -half_extents.y), half_extents);
+    vec2f clamped = vec2f_clamp(difference, VEC2F(-half_extents.x, -half_extents.y), half_extents);
     vec2f closest = vec2f_add(rect_center, clamped);
     vec2f delta = vec2f_sub(closest, circle_center);
 
     return vec2f_length(delta) <= a.radius;
 }
-
-static bool check_collision_vec2f_rect(vec2f a, rect_collider b) {
+bool check_collision_vec2f_rect(vec2f a, rect_collider b) {
     return b.pos.x < a.x && a.x < b.pos.x + b.size.x && b.pos.y < a.y &&
            a.y < b.pos.y + b.size.y;
 }
-
-static bool check_collision_circles(circle_collider a, circle_collider b) {
+bool check_collision_circles(circle_collider a, circle_collider b) {
     vec2f dist = vec2f_sub(a.pos, b.pos);
     float distance2 = (dist.x * dist.x) + (dist.y * dist.y);
     float radius_sum = a.radius + b.radius;
     return distance2 <= radius_sum * radius_sum;
 }
-
-static bool check_collision_vec2f_circle(vec2f a, circle_collider b) {
+bool check_collision_vec2f_circle(vec2f a, circle_collider b) {
     vec2f dist = vec2f_sub(a, b.pos);
     float distance2 = (dist.x * dist.x) + (dist.y * dist.y);
     return distance2 <= b.radius * b.radius;
 }
 
+#endif
+
 // }}}
 
 // {{{ Timing
 
-static unsigned int _nb_frames = 0;
-static float _last_time = 0.0f;
-static float _last_frame = 0.0f;
-static float _dt = 0.0f;
-static float _time_scale = 1.0f;
-static unsigned int _fps = 0;
+#ifdef CPL_IMPL
 
-static float get_time() {
+unsigned int _nb_frames = 0;
+float _last_time = 0.0f;
+float _last_frame = 0.0f;
+float _dt = 0.0f;
+float _time_scale = 1.0f;
+unsigned int _fps = 0;
+
+#endif
+
+float get_time();
+void _calc_fps();
+unsigned int get_fps();
+void _calc_dt();
+float get_dt();
+float get_time_scale();
+void set_time_scale(float scale);
+
+#ifdef CPL_IMPL
+
+float get_time() {
     static struct timespec start_ts;
     static bool initialized = false;
     struct timespec cur_ts;
@@ -2091,11 +2071,9 @@ static float get_time() {
         initialized = true;
     }
     clock_gettime(CLOCK_MONOTONIC, &cur_ts);
-    return (float)((double)(cur_ts.tv_sec - start_ts.tv_sec) +
-                   ((double)(cur_ts.tv_nsec - start_ts.tv_nsec) * 1e-9));
+    return (float)((double)(cur_ts.tv_sec - start_ts.tv_sec) + ((double)(cur_ts.tv_nsec - start_ts.tv_nsec) * 1e-9));
 }
-
-static void calc_fps() {
+void _calc_fps() {
     float cur_time = get_time();
     _nb_frames++;
     if (cur_time - _last_time >= 1.0) {
@@ -2104,18 +2082,17 @@ static void calc_fps() {
         _last_time += 1.0f;
     }
 }
-static unsigned int get_fps() { return _fps; }
-
-static void calc_dt() {
+unsigned int get_fps() { return _fps; }
+void _calc_dt() {
     float cur_frame = get_time();
     _dt = (cur_frame - _last_frame) * _time_scale;
     _last_frame = cur_frame;
 }
+float get_dt() { return _dt; }
+float get_time_scale() { return _time_scale; }
+void set_time_scale(float scale) { _time_scale = scale; }
 
-static float get_dt() { return _dt; }
-static float get_time_scale() { return _time_scale; }
-
-static void set_time_scale(float scale) { _time_scale = scale; }
+#endif
 
 // }}}
 
@@ -2127,55 +2104,66 @@ typedef struct {
     float rot;
 } cam_2D;
 
-static GLFWwindow *_window = NULL;
-static cam_2D _cam_2D;
+#ifdef CPL_IMPL
 
-static bool _key_states[KEY_LAST - KEY_SPACE + 1];
-static bool _prev_key_states[KEY_LAST - KEY_SPACE + 1];
-static bool _mouse_button_states[MOUSE_BUTTON_LAST + 1];
-static bool _prev_mouse_button_states[MOUSE_BUTTON_LAST + 1];
+GLFWwindow *_window = NULL;
+cam_2D _cam_2D;
 
-static void update_input() {
+bool _key_states[KEY_LAST - KEY_SPACE + 1];
+bool _prev_key_states[KEY_LAST - KEY_SPACE + 1];
+bool _mouse_button_states[MOUSE_BUTTON_LAST + 1];
+bool _prev_mouse_button_states[MOUSE_BUTTON_LAST + 1];
+
+#endif
+
+void _input_update();
+bool is_key_down(int key);
+bool is_key_up(int key);
+bool is_key_pressed(int key);
+bool is_key_released(int key);
+bool is_mouse_down(int button);
+bool is_mouse_pressed(int button);
+bool is_mouse_released(int button);
+mat4f *cam_2D_get_view_mat(cam_2D *cam);
+cam_2D *get_cam_2D();
+vec2f get_mouse_pos();
+vec2f get_screen_to_world_2D(vec2f sp);
+
+#ifdef CPL_IMPL
+
+void _input_update() {
     for (unsigned int i = 0; i < KEY_LAST - KEY_SPACE; i++) {
         _prev_key_states[i] = _key_states[i];
     }
     for (unsigned int key = KEY_SPACE; key <= KEY_LAST; key++) {
-        _key_states[key - KEY_SPACE] =
-            glfwGetKey(_window, (int)key) == GLFW_PRESS;
+        _key_states[key - KEY_SPACE] = glfwGetKey(_window, (int)key) == GLFW_PRESS;
     }
 
     for (unsigned int i = 0; i < MOUSE_BUTTON_LAST - MOUSE_BUTTON_1; i++) {
         _prev_mouse_button_states[i] = _mouse_button_states[i];
     }
-    for (unsigned int button = MOUSE_BUTTON_1; button <= MOUSE_BUTTON_LAST;
-         button++) {
-        _mouse_button_states[button - MOUSE_BUTTON_1] =
-            glfwGetMouseButton(_window, (int)button) == GLFW_PRESS;
+    for (unsigned int button = MOUSE_BUTTON_1; button <= MOUSE_BUTTON_LAST; button++) {
+        _mouse_button_states[button - MOUSE_BUTTON_1] = glfwGetMouseButton(_window, (int)button) == GLFW_PRESS;
     }
 }
-
-static bool is_key_down(int key) { return _key_states[key - KEY_SPACE]; }
-static bool is_key_up(int key) { return !_key_states[key - KEY_SPACE]; }
-static bool is_key_pressed(int key) {
+bool is_key_down(int key) { return _key_states[key - KEY_SPACE]; }
+bool is_key_up(int key) { return !_key_states[key - KEY_SPACE]; }
+bool is_key_pressed(int key) {
     return _key_states[key - KEY_SPACE] && !_prev_key_states[key - KEY_SPACE];
 }
-static bool is_key_released(int key) {
+bool is_key_released(int key) {
     return !_key_states[key - KEY_SPACE] && _prev_key_states[key - KEY_SPACE];
 }
-
-static bool is_mouse_down(int button) {
+bool is_mouse_down(int button) {
     return _mouse_button_states[button - MOUSE_BUTTON_1];
 }
-static bool is_mouse_pressed(int button) {
-    return _mouse_button_states[button - MOUSE_BUTTON_1] &&
-           !_prev_mouse_button_states[button - MOUSE_BUTTON_1];
+bool is_mouse_pressed(int button) {
+    return _mouse_button_states[button - MOUSE_BUTTON_1] && !_prev_mouse_button_states[button - MOUSE_BUTTON_1];
 }
-static bool is_mouse_released(int button) {
-    return !_mouse_button_states[button - MOUSE_BUTTON_1] &&
-           _prev_mouse_button_states[button - MOUSE_BUTTON_1];
+bool is_mouse_released(int button) {
+    return !_mouse_button_states[button - MOUSE_BUTTON_1] && _prev_mouse_button_states[button - MOUSE_BUTTON_1];
 }
-
-static mat4f *cam_2D_get_view_mat(cam_2D *cam) {
+mat4f *cam_2D_get_view_mat(cam_2D *cam) {
     mat4f *view = malloc(sizeof(mat4f));
     mat4f_identity(view);
 
@@ -2191,16 +2179,14 @@ static mat4f *cam_2D_get_view_mat(cam_2D *cam) {
 
     return view;
 }
-
-static cam_2D *get_cam_2D() { return &_cam_2D; }
-
-static vec2f get_mouse_pos() {
+cam_2D *get_cam_2D() { return &_cam_2D; }
+vec2f get_mouse_pos() {
     double x = 0;
     double y = 0;
     glfwGetCursorPos(_window, &x, &y);
     return VEC2F((float)x, (float)y);
 }
-static vec2f get_screen_to_world_2D(vec2f sp) {
+vec2f get_screen_to_world_2D(vec2f sp) {
     float x = sp.x;
     float y = sp.y;
     x /= _cam_2D.zoom;
@@ -2210,12 +2196,14 @@ static vec2f get_screen_to_world_2D(vec2f sp) {
     return (vec2f){x, y};
 }
 
+#endif
+
 // }}}
 
 // {{{ Window
 
 typedef enum {
-    SHAPE_2D_UNLIT,
+    SHAPE_2D_UNLIT = 0,
     SHAPE_2D_LIT,
     TEXT,
     TEXTURE_2D_UNLIT,
@@ -2223,26 +2211,46 @@ typedef enum {
     _DRAW_MODES_COUNT
 } draw_mode;
 
-static GLubyte *_renderer;
-static GLubyte *_vendor;
-static GLubyte *_version;
-static unsigned int _screen_width = 0;
-static unsigned int _screen_height = 0;
-static mat4f _projection_2D;
-static draw_mode _cur_draw_mode = SHAPE_2D_UNLIT;
-static shader _shaders[_DRAW_MODES_COUNT];
-static shader _hdr_shader;
+#ifdef CPL_IMPL
 
-static void _framebuffer_size_callback([[maybe_unused]] GLFWwindow *window,
-                                       int width, int height) {
+GLubyte *_renderer;
+GLubyte *_vendor;
+GLubyte *_version;
+unsigned int _screen_width = 0;
+unsigned int _screen_height = 0;
+mat4f _projection_2D;
+draw_mode _cur_draw_mode = SHAPE_2D_UNLIT;
+shader _shaders[_DRAW_MODES_COUNT];
+shader _hdr_shader;
+
+#endif
+
+void _framebuffer_size_callback(GLFWwindow *window, int width, int height);
+void _web_window_resize();
+void _init_shaders();
+void window_init(unsigned int width, unsigned int height, char *title, opengl_versions version);
+bool window_should_close();
+void window_destroy();
+void window_close();
+unsigned int get_screen_width();
+unsigned int get_screen_height();
+vec2f get_screen_size();
+void enable_vsync(bool enabled);
+void update();
+void end_frame();
+
+#ifdef CPL_IMPL
+
+void _framebuffer_size_callback(GLFWwindow *window, int width, int height) {
+    (void)window;
+
     glViewport(0, 0, width, height);
     _screen_width = width;
     _screen_height = height;
     mat4f_ortho(&_projection_2D, 0.0f, (float)_screen_width,
                 (float)_screen_height, 0.0f, -1.0f, 1.0f);
 }
-
-static void _web_window_resize() {
+void _web_window_resize() {
 #ifdef __EMSCRIPTEN__
     int w = emscripten_run_script_int("window.innerWidth");
     int h = emscripten_run_script_int("window.innerHeight");
@@ -2251,42 +2259,24 @@ static void _web_window_resize() {
     }
 #endif
 }
-
-static void _init_shaders() {
+void _init_shaders() {
 #ifndef __EMSCRIPTEN__
-    create_shader(&_shaders[SHAPE_2D_UNLIT], "shaders/vert/2D/shape.vert",
-                  "shaders/frag/2D/shape_unlit.frag");
-    create_shader(&_shaders[SHAPE_2D_LIT], "shaders/vert/2D/shape.vert",
-                  "shaders/frag/2D/shape_lit.frag");
-    create_shader(&_shaders[TEXT], "shaders/vert/2D/text.vert",
-                  "shaders/frag/2D/text.frag");
-    create_shader(&_shaders[TEXTURE_2D_UNLIT], "shaders/vert/2D/texture.vert",
-                  "shaders/frag/2D/texture_unlit.frag");
-    create_shader(&_shaders[TEXTURE_2D_LIT], "shaders/vert/2D/texture.vert",
-                  "shaders/frag/2D/texture_lit.frag");
-
-    create_shader(&_hdr_shader, "shaders/vert/2D/hdr.vert",
-                  "shaders/frag/2D/hdr.frag");
+    shader_create(&_shaders[SHAPE_2D_UNLIT], "shaders/vert/2D/shape.vert", "shaders/frag/2D/shape_unlit.frag");
+    shader_create(&_shaders[SHAPE_2D_LIT], "shaders/vert/2D/shape.vert", "shaders/frag/2D/shape_lit.frag");
+    shader_create(&_shaders[TEXT], "shaders/vert/2D/text.vert", "shaders/frag/2D/text.frag");
+    shader_create(&_shaders[TEXTURE_2D_UNLIT], "shaders/vert/2D/texture.vert", "shaders/frag/2D/texture_unlit.frag");
+    shader_create(&_shaders[TEXTURE_2D_LIT], "shaders/vert/2D/texture.vert", "shaders/frag/2D/texture_lit.frag");
+    shader_create(&_hdr_shader, "shaders/vert/2D/hdr.vert", "shaders/frag/2D/hdr.frag");
 #else
-    create_shader(&_shaders[SHAPE_2D_UNLIT], "/shaders/vert/2D/shape_w.vert",
-                  "/shaders/frag/2D/shape_unlit_w.frag");
-    create_shader(&_shaders[SHAPE_2D_LIT], "/shaders/vert/2D/shape_w.vert",
-                  "/shaders/frag/2D/shape_lit_w.frag");
-    create_shader(&_shaders[TEXT], "/shaders/vert/2D/text_w.vert",
-                  "/shaders/frag/2D/text_w.frag");
-    create_shader(&_shaders[TEXTURE_2D_UNLIT],
-                  "/shaders/vert/2D/texture_w.vert",
-                  "/shaders/frag/2D/texture_unlit_w.frag");
-    create_shader(&_shaders[TEXTURE_2D_LIT], "/shaders/vert/2D/texture_w.vert",
-                  "/shaders/frag/2D/texture_lit_w.frag");
-
-    create_shader(&_hdr_shader, "/shaders/vert/2D/hdr_w.vert",
-                  "/shaders/frag/2D/hdr_w.frag");
+    shader_create(&_shaders[SHAPE_2D_UNLIT], "/shaders/vert/2D/shape_w.vert", "/shaders/frag/2D/shape_unlit_w.frag");
+    shader_create(&_shaders[SHAPE_2D_LIT], "/shaders/vert/2D/shape_w.vert", "/shaders/frag/2D/shape_lit_w.frag");
+    shader_create(&_shaders[TEXT], "/shaders/vert/2D/text_w.vert", "/shaders/frag/2D/text_w.frag");
+    shader_create(&_shaders[TEXTURE_2D_UNLIT], "/shaders/vert/2D/texture_w.vert", "/shaders/frag/2D/texture_unlit_w.frag");
+    shader_create(&_shaders[TEXTURE_2D_LIT], "/shaders/vert/2D/texture_w.vert", "/shaders/frag/2D/texture_lit_w.frag");
+    shader_create(&_hdr_shader, "/shaders/vert/2D/hdr_w.vert", "/shaders/frag/2D/hdr_w.frag");
 #endif
 }
-
-static void init_window(unsigned int width, unsigned int height, char *title,
-                        unsigned int version) {
+void window_init(unsigned int width, unsigned int height, char *title, opengl_versions version) {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (int)version / 10);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (int)version % 10);
@@ -2328,11 +2318,10 @@ static void init_window(unsigned int width, unsigned int height, char *title,
         exit(-1);
     }
 
-    enable_opengl_debug();
+    opengl_debug_enable();
 
     _cam_2D = (cam_2D){{0.0f, 0.0f}, 1.0f, 0.0f};
-    mat4f_ortho(&_projection_2D, 0.0f, (float)_screen_width,
-                (float)_screen_height, 0.0f, -1.0f, 1.0f);
+    mat4f_ortho(&_projection_2D, 0.0f, (float)_screen_width, (float)_screen_height, 0.0f, -1.0f, 1.0f);
 
     _init_shaders();
 
@@ -2344,43 +2333,50 @@ static void init_window(unsigned int width, unsigned int height, char *title,
     _vendor = (GLubyte *)glGetString(GL_VENDOR);
     _version = (GLubyte *)glGetString(GL_VERSION);
 }
-
-static bool window_should_close() { return glfwWindowShouldClose(_window); }
-
-static void destroy_window() { glfwSetWindowShouldClose(_window, 1); }
-
-static void close_window() { glfwTerminate(); }
-
-static unsigned int get_screen_width() { return _screen_width; }
-static unsigned int get_screen_height() { return _screen_height; }
-static vec2f get_screen_size() { return VEC2F(_screen_width, _screen_height); }
-
-static void enable_vsync(bool enabled) { glfwSwapInterval(enabled); }
-
-static void update() {
-    calc_fps();
-    calc_dt();
-    update_input();
+bool window_should_close() { return glfwWindowShouldClose(_window); }
+void window_destroy() { glfwSetWindowShouldClose(_window, 1); }
+void window_close() { glfwTerminate(); }
+unsigned int get_screen_width() { return _screen_width; }
+unsigned int get_screen_height() { return _screen_height; }
+vec2f get_screen_size() { return VEC2F(_screen_width, _screen_height); }
+void enable_vsync(bool enabled) { glfwSwapInterval(enabled); }
+void update() {
+    _calc_fps();
+    _calc_dt();
+    _input_update();
 }
-
-static void end_frame() {
+void end_frame() {
     glfwSwapBuffers(_window);
     glfwPollEvents();
 }
+
+#endif
 
 // }}}
 
 // {{{ Drawing
 
-static void clear_background(vec4f color) {
-    glClearColor(color.r / 255.0f, color.g / 255.0f, color.b / 255.0f,
-                 color.a / 255.0f);
+void clear_background(vec4f color);
+void begin_draw(draw_mode draw_mode, bool mode_2D);
+void draw_rect(vec2f pos, vec2f size, vec4f color, float rot);
+void draw_triangle(vec2f pos, vec2f size, vec4f color, float rot);
+void draw_circle(vec2f pos, float radius, vec4f color);
+void draw_line(vec2f start, vec2f end, float thickness, vec4f color);
+void draw_text(font *font, char *text, vec2f pos, float scale, vec4f color);
+void draw_text_shadow(font *font, char *text, vec2f pos, float scale, vec4f color, vec2f shadow_off, vec4f shadow_color);
+void draw_texture2D(texture *tex, vec2f pos, vec2f size, vec4f color, float rot);
+void _reset_shader();
+void display_details(font *font);
+
+#ifdef CPL_IMPL
+
+void clear_background(vec4f color) {
+    glClearColor(color.r / 255.0f, color.g / 255.0f, color.b / 255.0f, color.a / 255.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
-
-static void begin_draw(draw_mode draw_mode, bool mode_2D) {
+void begin_draw(draw_mode draw_mode, bool mode_2D) {
     _cur_draw_mode = draw_mode;
-    use_shader(&_shaders[draw_mode]);
+    shader_use(&_shaders[draw_mode]);
 
     mat4f view_projection_2D;
     if (mode_2D) {
@@ -2388,65 +2384,51 @@ static void begin_draw(draw_mode draw_mode, bool mode_2D) {
         mat4f_mul(&_projection_2D, view, &view_projection_2D);
         free(view);
     }
-    shader_set_mat4f(&_shaders[draw_mode], "projection",
-                     mode_2D ? view_projection_2D : _projection_2D);
+    shader_set_mat4f(&_shaders[draw_mode], "projection", mode_2D ? &view_projection_2D : &_projection_2D);
 }
-
-static void draw_rect(vec2f pos, vec2f size, vec4f color, float rot) {
+void draw_rect(vec2f pos, vec2f size, vec4f color, float rot) {
     rect r;
-    create_rect(&r, pos, size, color, rot);
-    draw_rect_raw(&_shaders[_cur_draw_mode], &r);
-    destroy_rect(&r);
+    rect_create(&r, pos, size, color, rot);
+    rect_draw_raw(&_shaders[_cur_draw_mode], &r);
+    rect_destroy(&r);
 }
-
-static void draw_triangle(vec2f pos, vec2f size, vec4f color, float rot) {
+void draw_triangle(vec2f pos, vec2f size, vec4f color, float rot) {
     triangle t;
-    create_triangle(&t, pos, size, color, rot);
-    draw_triangle_raw(&_shaders[_cur_draw_mode], &t);
-    destroy_triangle(&t);
+    triangle_create(&t, pos, size, color, rot);
+    triangle_draw_raw(&_shaders[_cur_draw_mode], &t);
+    triangle_destroy(&t);
 }
-
-static void draw_circle(vec2f pos, float radius, vec4f color) {
+void draw_circle(vec2f pos, float radius, vec4f color) {
     circle c;
-    create_circle(&c, pos, radius, color);
-    draw_circle_raw(&_shaders[_cur_draw_mode], &c);
-    destroy_circle(&c);
+    circle_create(&c, pos, radius, color);
+    circle_draw_raw(&_shaders[_cur_draw_mode], &c);
+    circle_destroy(&c);
 }
-
-static void draw_line(vec2f start, vec2f end, float thickness, vec4f color) {
+void draw_line(vec2f start, vec2f end, float thickness, vec4f color) {
     line l;
-    create_line(&l, start, end, color);
+    line_create(&l, start, end, color);
     glLineWidth(thickness);
-    draw_line_raw(&_shaders[_cur_draw_mode], &l);
+    line_draw_raw(&_shaders[_cur_draw_mode], &l);
     glLineWidth(1.0f);
-    destroy_line(&l);
+    line_destroy(&l);
 }
-
-static void draw_text(font *font, char *text, vec2f pos, float scale,
-                      vec4f color) {
-    draw_text_raw(&_shaders[_cur_draw_mode], font, text, pos, scale, color);
+void draw_text(font *font, char *text, vec2f pos, float scale, vec4f color) {
+    text_draw_raw(&_shaders[_cur_draw_mode], font, text, pos, scale, color);
 }
-
-static void draw_text_shadow(font *font, char *text, vec2f pos, float scale,
-                             vec4f color, vec2f shadow_off,
-                             vec4f shadow_color) {
-    draw_text_raw(&_shaders[_cur_draw_mode], font, text,
+void draw_text_shadow(font *font, char *text, vec2f pos, float scale, vec4f color, vec2f shadow_off, vec4f shadow_color) {
+    text_draw_raw(&_shaders[_cur_draw_mode], font, text,
                   VEC2F(pos.x + shadow_off.x, pos.y + shadow_off.y), scale,
                   shadow_color);
-    draw_text_raw(&_shaders[_cur_draw_mode], font, text, pos, scale, color);
+    text_draw_raw(&_shaders[_cur_draw_mode], font, text, pos, scale, color);
 }
-
-static void draw_texture2D(texture *tex, vec2f pos, vec2f size, vec4f color,
-                           float rot) {
+void draw_texture2D(texture *tex, vec2f pos, vec2f size, vec4f color, float rot) {
     texture2D t;
-    create_texture2D(&t, pos, size, rot, color, tex);
-    draw_texture2D_raw(&_shaders[_cur_draw_mode], &t);
-    destroy_texture2D(&t);
+    texture2D_create(&t, pos, size, rot, color, tex);
+    texture2D_draw_raw(&_shaders[_cur_draw_mode], &t);
+    texture2D_destroy(&t);
 }
-
-static void reset_shader() { use_shader(&_shaders[_cur_draw_mode]); }
-
-static void display_details(font *font) {
+void _reset_shader() { shader_use(&_shaders[_cur_draw_mode]); }
+void display_details(font *font) {
     begin_draw(TEXT, false);
 
     char version_str[50];
@@ -2465,14 +2447,14 @@ static void display_details(font *font) {
 
 #ifdef __linux__
     snprintf(stack_used, 50, "Stack used: %.3f / %.3f MiB (%f%%)",
-             MiB((float)get_stack_used()), MiB((float)get_stack_size()),
-             (float)get_stack_used() / (float)get_stack_size());
+             MiB((float)profiler_get_stack_used()), MiB((float)profiler_get_stack_size()),
+             (float)profiler_get_stack_used() / (float)profiler_get_stack_size());
     snprintf(heap_total, 50, "Heap size: %d MB",
-             (int)MiB((float)get_heap_size()));
+             (int)MiB((float)profiler_get_heap_size()));
     snprintf(heap_used, 50, "Heap used: %d MB",
-             (int)MiB((float)get_heap_used()));
+             (int)MiB((float)profiler_get_heap_used()));
     snprintf(heap_free, 50, "Heap free: %d MB",
-             (int)MiB((float)get_heap_free()));
+             (int)MiB((float)profiler_get_heap_free()));
 #endif
 
     draw_text(font, version_str, VEC2F(10.0f, 10.0f), 0.5f, WHITE);
@@ -2487,6 +2469,8 @@ static void display_details(font *font) {
 #endif
 }
 
+#endif
+
 // }}}
 
 // {{{ Lighting 2D
@@ -2497,39 +2481,45 @@ typedef struct {
     float intensity;
     vec4f color;
 } point_light_2D;
+
 typedef struct {
     float intensity;
     vec4f color;
 } global_light_2D;
 
-static void set_ambient_light_2D(float strength) {
+void set_ambient_light_2D(float strength);
+void set_global_light_2D(global_light_2D *l);
+void add_point_lights_2D(point_light_2D *ls, unsigned int size);
+
+#ifdef CPL_IMPL
+
+void set_ambient_light_2D(float strength) {
     shader *ss = &_shaders[SHAPE_2D_LIT];
-    use_shader(ss);
+    shader_use(ss);
     shader_set_float(ss, "ambient", strength);
 
     shader *ts = &_shaders[TEXTURE_2D_LIT];
-    use_shader(ts);
+    shader_use(ts);
     shader_set_float(ts, "ambient", strength);
 
-    reset_shader();
+    _reset_shader();
 }
-static void set_global_light_2D(global_light_2D *l) {
+void set_global_light_2D(global_light_2D *l) {
     shader *ss = &_shaders[SHAPE_2D_LIT];
-    use_shader(ss);
+    shader_use(ss);
     shader_set_float(ss, "g_light.intensity", l->intensity);
-    shader_set_rgba(ss, "g_light.color", l->color);
+    shader_set_color(ss, "g_light.color", l->color);
 
     shader *ts = &_shaders[TEXTURE_2D_LIT];
-    use_shader(ts);
+    shader_use(ts);
     shader_set_float(ts, "g_light.intensity", l->intensity);
-    shader_set_rgba(ts, "g_light.color", l->color);
+    shader_set_color(ts, "g_light.color", l->color);
 
-    reset_shader();
+    _reset_shader();
 }
-
-static void add_point_lights_2D(point_light_2D *ls, unsigned int size) {
+void add_point_lights_2D(point_light_2D *ls, unsigned int size) {
     shader *ss = &_shaders[SHAPE_2D_LIT];
-    use_shader(ss);
+    shader_use(ss);
 
     shader_set_int(ss, "point_lights_cnt", (int)size);
     for (unsigned int i = 0; i < size; i++) {
@@ -2545,11 +2535,11 @@ static void add_point_lights_2D(point_light_2D *ls, unsigned int size) {
         shader_set_vec2f(ss, pos, ls[i].pos);
         shader_set_float(ss, radius, ls[i].radius);
         shader_set_float(ss, intensity, ls[i].intensity);
-        shader_set_rgba(ss, color, ls[i].color);
+        shader_set_color(ss, color, ls[i].color);
     }
 
     shader *ts = &_shaders[TEXTURE_2D_LIT];
-    use_shader(ts);
+    shader_use(ts);
 
     shader_set_int(ts, "point_lights_cnt", (int)size);
     for (unsigned int i = 0; i < size; i++) {
@@ -2565,11 +2555,13 @@ static void add_point_lights_2D(point_light_2D *ls, unsigned int size) {
         shader_set_vec2f(ts, pos, ls[i].pos);
         shader_set_float(ts, radius, ls[i].radius);
         shader_set_float(ts, intensity, ls[i].intensity);
-        shader_set_rgba(ts, color, ls[i].color);
+        shader_set_color(ts, color, ls[i].color);
     }
 
-    reset_shader();
+    _reset_shader();
 }
+
+#endif
 
 // }}}
 
@@ -2599,12 +2591,24 @@ typedef struct {
     unsigned int vao;
 } tilemap;
 
-static void tilemap_load_texture(tilemap *m, char *path,
-                                 texture_filtering filter) {
-    load_texture(&m->tex, path, filter);
-}
+void tilemap_load_texture(tilemap *m, char *path, texture_filtering filter);
+void tilemap_delete_tile(tilemap *m, vec2f pos);
+bool tilemap_tile_exists(tilemap *m, vec2f pos);
+void tilemap_check_collidable_tiles(tilemap *m, vec2f size);
+bool tilemap_tile_collidable(tilemap *m, vec2f pos);
+vec2f tilemap_get_tile_uv(tilemap *m, vec2f pos);
+void tilemap_create(tilemap *m, vec2f tile_size);
+void tilemap_destroy(tilemap *m);
+void tilemap_begin_editing(tilemap *m);
+void tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv);
+void tilemap_draw(tilemap *m, vec4f color);
 
-static void tilemap_delete_tile(tilemap *m, vec2f pos) {
+#ifdef CPL_IMPL
+
+void tilemap_load_texture(tilemap *m, char *path, texture_filtering filter) {
+    texture_load(&m->tex, path, filter);
+}
+void tilemap_delete_tile(tilemap *m, vec2f pos) {
     for (unsigned int i = 0; i < m->renderer.count; i += 6) {
         if (m->renderer.vertices[i].x == pos.x &&
             m->renderer.vertices[i].y == pos.y) {
@@ -2621,8 +2625,7 @@ static void tilemap_delete_tile(tilemap *m, vec2f pos) {
         }
     }
 }
-
-static bool tilemap_tile_exists(tilemap *m, vec2f pos) {
+bool tilemap_tile_exists(tilemap *m, vec2f pos) {
     for (unsigned int i = 0; i < m->renderer.count; i += 6) {
         if (m->renderer.vertices[i].x == pos.x &&
             m->renderer.vertices[i].y == pos.y) {
@@ -2631,8 +2634,7 @@ static bool tilemap_tile_exists(tilemap *m, vec2f pos) {
     }
     return false;
 }
-
-static void tilemap_check_collidable_tiles(tilemap *m, vec2f size) {
+void tilemap_check_collidable_tiles(tilemap *m, vec2f size) {
     for (unsigned int i = 0; i < m->renderer.count; i += 6) {
         bool exposed = false;
 
@@ -2651,8 +2653,7 @@ static void tilemap_check_collidable_tiles(tilemap *m, vec2f size) {
         m->renderer.collidable[i / 6] = exposed;
     }
 }
-
-static bool tilemap_tile_collidable(tilemap *m, vec2f pos) {
+bool tilemap_tile_collidable(tilemap *m, vec2f pos) {
     for (unsigned int i = 0; i < m->renderer.count; i += 6) {
         if (m->renderer.vertices[i].x == pos.x &&
             m->renderer.vertices[i].y == pos.y) {
@@ -2661,8 +2662,7 @@ static bool tilemap_tile_collidable(tilemap *m, vec2f pos) {
     }
     return false;
 }
-
-static vec2f tilemap_get_tile_uv(tilemap *m, vec2f pos) {
+vec2f tilemap_get_tile_uv(tilemap *m, vec2f pos) {
     for (unsigned int i = 0; i < m->renderer.count; i += 6) {
         if (m->renderer.vertices[i].x == pos.x &&
             m->renderer.vertices[i].y == pos.y) {
@@ -2674,8 +2674,7 @@ static vec2f tilemap_get_tile_uv(tilemap *m, vec2f pos) {
     }
     return VEC2F(-1, -1);
 }
-
-static void create_tilemap(tilemap *m, vec2f tile_size) {
+void tilemap_create(tilemap *m, vec2f tile_size) {
     m->size = tile_size;
     m->renderer.count = 0;
     m->renderer.capacity = 100 * 6;
@@ -2696,17 +2695,14 @@ static void create_tilemap(tilemap *m, vec2f tile_size) {
 
     glBindVertexArray(0);
 }
-
-static void destroy_tilemap(tilemap *m) {
+void tilemap_destroy(tilemap *m) {
     free(m->renderer.vertices);
     free(m->renderer.collidable);
     glDeleteBuffers(1, &m->renderer.vbo);
     glDeleteVertexArrays(1, &m->vao);
 }
-
-static void tilemap_begin_editing(tilemap *m) { m->renderer.count = 0; }
-
-static void tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv) {
+void tilemap_begin_editing(tilemap *m) { m->renderer.count = 0; }
+void tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv) {
     if (tilemap_tile_exists(m, pos)) {
         return;
     }
@@ -2736,33 +2732,30 @@ static void tilemap_add_tile(tilemap *m, vec2f pos, vec2f size, vec2f uv) {
     float h = size.y;
 
     vertex quad[6] = {
-        {x, y, 0, u_start, v_start},     //
-        {x + w, y, 0, u_end, v_start},   //
-        {x + w, y + h, 0, u_end, v_end}, //
+        {x,     y,     0, u_start, v_start},     
+        {x + w, y,     0, u_end, v_start  },   
+        {x + w, y + h, 0, u_end, v_end    }, 
 
-        {x, y, 0, u_start, v_start},     //
-        {x + w, y + h, 0, u_end, v_end}, //
-        {x, y + h, 0, u_start, v_end}    //
+        {x,     y,     0, u_start, v_start},     
+        {x + w, y + h, 0, u_end, v_end    }, 
+        {x,     y + h, 0, u_start, v_end  }    
     };
 
     memcpy(&m->renderer.vertices[m->renderer.count], quad, sizeof(quad));
     m->renderer.count += 6;
 }
-
-static void tilemap_draw(tilemap *m, vec4f color) {
+void tilemap_draw(tilemap *m, vec4f color) {
     if (m->renderer.count == 0) {
         return;
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, m->renderer.vbo);
-    glBufferData(GL_ARRAY_BUFFER,
-                 (unsigned int)(m->renderer.count * sizeof(vertex)),
-                 m->renderer.vertices, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, (unsigned int)(m->renderer.count * sizeof(vertex)), m->renderer.vertices, GL_STREAM_DRAW);
 
     mat4f transform;
     mat4f_identity(&transform);
-    shader_set_mat4f(&_shaders[_cur_draw_mode], "transform", transform);
-    shader_set_rgba(&_shaders[_cur_draw_mode], "input_color", color);
+    shader_set_mat4f(&_shaders[_cur_draw_mode], "transform", &transform);
+    shader_set_color(&_shaders[_cur_draw_mode], "input_color", color);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m->tex.id);
@@ -2774,6 +2767,8 @@ static void tilemap_draw(tilemap *m, vec4f color) {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+#endif
+
 // }}}
 
 // {{{ Particle System
@@ -2781,9 +2776,10 @@ static void tilemap_draw(tilemap *m, vec4f color) {
 #define UNLIMITED_PARTICLES 0
 
 #define PARTICLE(pos, size, dir, color, life_time, rot, tex)                   \
-    (particle) { pos, size, dir, color, 0, life_time, rot, tex, true }
+    (particle) { tex, pos, size, dir, color, 0, life_time, rot, true }
 
 typedef struct {
+    texture *tex;
     vec2f pos;
     vec2f size;
     vec2f dir;
@@ -2791,7 +2787,6 @@ typedef struct {
     float cur_life_time;
     float life_time;
     float rot;
-    texture *tex;
     bool active;
 } particle;
 
@@ -2802,22 +2797,23 @@ typedef struct {
     particle *particles;
 } particle_system;
 
-static void create_particle_system(particle_system *ps, vec2f pos,
-                                   unsigned int max_particles) {
+void particle_system_create(particle_system *ps, vec2f pos, unsigned int max_particles);
+void particle_system_destroy(particle_system *ps);
+void particle_system_update(particle_system *ps);
+void particle_system_draw(particle_system *ps);
+void particle_system_add_particle(particle_system *ps, particle p);
+
+#ifdef CPL_IMPL
+
+void particle_system_create(particle_system *ps, vec2f pos, unsigned int max_particles) {
     ps->pos = pos;
     ps->max_particles = max_particles;
-    ps->particles =
-        vec_init(ps->particles,
-                 max_particles >= 10 || max_particles == UNLIMITED_PARTICLES
-                     ? 10
-                     : max_particles);
+    ps->particles = vec_init(ps->particles, (max_particles >= 10 || max_particles == UNLIMITED_PARTICLES) ? 10 : max_particles);
 }
-
-static void destroy_particle_system(particle_system *ps) {
+void particle_system_destroy(particle_system *ps) {
     vec_destroy(ps->particles);
 }
-
-static void update_particle_system(particle_system *ps) {
+void particle_system_update(particle_system *ps) {
     foreach_vec(p, ps->particles) {
         p->cur_life_time += get_dt();
         p->pos =
@@ -2836,158 +2832,18 @@ static void update_particle_system(particle_system *ps) {
     }
     vec_header(ps->particles)->size = write_idx;
 }
-
-static void draw_particles(particle_system *ps) {
+void particle_system_draw(particle_system *ps) {
     foreach_vec(p, ps->particles) {
         draw_texture2D(p->tex, p->pos, p->size, p->color, p->rot);
     }
 }
-
-static void add_particle(particle_system *ps, particle p) {
+void particle_system_add_particle(particle_system *ps, particle p) {
     if (vec_size(ps->particles) < ps->max_particles || ps->max_particles == 0) {
         vec_push(ps->particles, p);
     }
 }
 
-// }}}
-
-// {{{ Shadow 2D
-
-#define MAX_RECT_SHADOWS 1024
-
-typedef struct {
-    vec2f pos;
-    vec2f size;
-} rect_shadow;
-
-static rect_shadow _rect_shadows[MAX_RECT_SHADOWS];
-static unsigned int _rect_shadow_count = 0;
-
-static void begin_shadow_cast_2D() {
-    glEnable(GL_STENCIL_TEST);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    glStencilFunc(GL_ALWAYS, 1, 0xFF);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    begin_draw(SHAPE_2D_UNLIT, true);
-}
-
-static void end_shadow_cast_2D(float ambient, float shadow_strength,
-                               color shadow_color) {
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glStencilFunc(GL_EQUAL, 1, 0xFF);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-    float shadow_alpha = math_clamp(shadow_strength - ambient, 0, 1);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    begin_draw(SHAPE_2D_UNLIT, false);
-    draw_rect(VEC2F(0, 0), get_screen_size(),
-              RGBA(shadow_color.r, shadow_color.g, shadow_color.b,
-                   255 * shadow_alpha),
-              0);
-    glDisable(GL_STENCIL_TEST);
-}
-
-static void submit_rect_shadow(vec2f pos, vec2f size) {
-    if (_rect_shadow_count < MAX_RECT_SHADOWS) {
-        _rect_shadows[_rect_shadow_count++] = (rect_shadow){pos, size};
-    }
-}
-
-// TODO make ts somehow work
-
-static void draw_triangle_shadow(vec2f a, vec2f b, vec2f c) {
-    float vertices[9] = {
-        a.x, a.y, 0.0f, b.x, b.y, 0.0f, c.x, c.y, 1.0f,
-    };
-    unsigned int vao;
-    unsigned int vbo;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
-                          (void *)NULL);
-    glEnableVertexAttribArray(0);
-    mat4f transform;
-    mat4f_identity(&transform);
-    shader_set_mat4f(&_shaders[SHAPE_2D_UNLIT], "transform", transform);
-    shader_set_rgba(&_shaders[SHAPE_2D_UNLIT], "input_color",
-                    RGBA(0.0f, 0.0f, 0.0f, 1.0f));
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glDeleteVertexArrays(1, &vao);
-    glDeleteBuffers(1, &vbo);
-}
-
-static void draw_rect_shadow(vec2f pos, vec2f size, point_light_2D *lights,
-                             unsigned int n, float far) {
-    vec2f corners[4] = {
-        {pos.x, pos.y},
-        {pos.x + size.x, pos.y},
-        {pos.x + size.x, pos.y + size.y},
-        {pos.x, pos.y + size.y},
-    };
-    vec2f normals[4] = {
-        {0, -1},
-        {1, 0},
-        {0, 1},
-        {-1, 0},
-    };
-    for (unsigned int l = 0; l < n; l++) {
-        for (unsigned int i = 0; i < 4; i++) {
-            unsigned int next = (i + 1) % 4;
-            vec2f a = corners[i];
-            vec2f b = corners[next];
-            vec2f mid = {(a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f};
-            vec2f to_edge = {mid.x - lights[l].pos.x, mid.y - lights[l].pos.y};
-            float d = (normals[i].x * to_edge.x) + (normals[i].y * to_edge.y);
-            if (d <= 0) {
-                continue;
-            }
-            vec2f dir_a = {a.x - lights[l].pos.x, a.y - lights[l].pos.y};
-            float len_a = sqrtf((dir_a.x * dir_a.x) + (dir_a.y * dir_a.y));
-            dir_a.x /= len_a;
-            dir_a.y /= len_a;
-            vec2f dir_b = {b.x - lights[l].pos.x, b.y - lights[l].pos.y};
-            float len_b = sqrtf((dir_b.x * dir_b.x) + (dir_b.y * dir_b.y));
-            dir_b.x /= len_b;
-            dir_b.y /= len_b;
-            vec2f a2 = {a.x + (dir_a.x * far), a.y + (dir_a.y * far)};
-            vec2f b2 = {b.x + (dir_b.x * far), b.y + (dir_b.y * far)};
-            draw_triangle_shadow(a, b, b2);
-            draw_triangle_shadow(a, b2, a2);
-        }
-    }
-}
-
-static void draw_shadows(point_light_2D *lights, unsigned int light_count,
-                         float far, float shadow_strength) {
-    glEnable(GL_STENCIL_TEST);
-
-    glClear(GL_STENCIL_BUFFER_BIT);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    glStencilFunc(GL_ALWAYS, 1, 0xFF);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-
-    for (unsigned int l = 0; l < light_count; l++) {
-        for (unsigned int i = 0; i < _rect_shadow_count; i++) {
-            draw_rect_shadow(_rect_shadows[i].pos, _rect_shadows[i].size,
-                             &lights[l], 1, far);
-        }
-    }
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glStencilFunc(GL_EQUAL, 1, 0xFF);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-
-    begin_draw(SHAPE_2D_UNLIT, false);
-    draw_rect(VEC2F(0, 0), get_screen_size(),
-              RGBA(0, 0, 0, (uint8_t)(255 * shadow_strength)), 0);
-
-    glDisable(GL_STENCIL_TEST);
-    _rect_shadow_count = 0;
-}
+#endif
 
 // }}}
 
@@ -3001,34 +2857,38 @@ typedef struct {
     unsigned int quad_vbo;
 } hdr;
 
-static hdr _hdr = (hdr){0, 0, 0, 0, 0};
+#ifdef CPL_IMPL
 
-static void init_hdr() {
+hdr _hdr = (hdr){0, 0, 0, 0, 0};
+
+#endif
+
+void hdr_init();
+void hdr_quad_resize(hdr *h, int width, int height);
+void hdr_begin();
+void hdr_apply(bool gamma_correct, float exposure);
+
+#ifdef CPL_IMPL
+
+void hdr_init() {
     glGenFramebuffers(1, &_hdr.fbo);
     glGenTextures(1, &_hdr.color_buffer);
     glBindTexture(GL_TEXTURE_2D, _hdr.color_buffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, (int)_screen_width,
-                 (int)_screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, (int)_screen_width, (int)_screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glGenRenderbuffers(1, &_hdr.rbo_depth);
     glBindRenderbuffer(GL_RENDERBUFFER, _hdr.rbo_depth);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT,
-                          (int)_screen_width, (int)_screen_height);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, (int)_screen_width, (int)_screen_height);
     glBindFramebuffer(GL_FRAMEBUFFER, _hdr.fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           _hdr.color_buffer, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                              GL_RENDERBUFFER, _hdr.rbo_depth);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _hdr.color_buffer, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _hdr.rbo_depth);
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         cpl_log(LOG_ERR, "Framebuffer is not complete!");
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
-
-static void hdr_quad_resize(hdr *h, int width, int height) {
-    // q->size = (vec2f){(float)width, (float)height};
-
+void hdr_quad_resize(hdr *h, int width, int height) {
     glBindTexture(GL_TEXTURE_2D, h->color_buffer);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
                  GL_UNSIGNED_BYTE, NULL);
@@ -3039,45 +2899,42 @@ static void hdr_quad_resize(hdr *h, int width, int height) {
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 }
-
-static void begin_hdr() {
+void hdr_begin() {
     glBindFramebuffer(GL_FRAMEBUFFER, _hdr.fbo);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     hdr_quad_resize(&_hdr, (int)_screen_width, (int)_screen_height);
 }
-
-static void apply_hdr(bool gamma_correct, float exposure) {
+void hdr_apply(bool gamma_correct, float exposure) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    use_shader(&_hdr_shader);
+    shader_use(&_hdr_shader);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _hdr.color_buffer);
     shader_set_bool(&_hdr_shader, "gamma_correct", gamma_correct);
     shader_set_float(&_hdr_shader, "exposure", exposure);
     if (_hdr.quad_vao == 0) {
         float vertices[] = {
-            -1.0f, 1.0f,  0.0f, 0.0f, 1.0f, //
-            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, //
-            1.0f,  1.0f,  0.0f, 1.0f, 1.0f, //
-            1.0f,  -1.0f, 0.0f, 1.0f, 0.0f, //
+            -1.0f, 1.0f,  0.0f, 0.0f, 1.0f, 
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 
+            1.0f,  1.0f,  0.0f, 1.0f, 1.0f, 
+            1.0f,  -1.0f, 0.0f, 1.0f, 0.0f, 
         };
         glGenVertexArrays(1, &_hdr.quad_vao);
         glGenBuffers(1, &_hdr.quad_vbo);
         glBindVertexArray(_hdr.quad_vao);
         glBindBuffer(GL_ARRAY_BUFFER, _hdr.quad_vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices,
-                     GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices, GL_STATIC_DRAW);
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
-                              (void *)0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), NULL);
         glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
-                              (void *)(3 * sizeof(float)));
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
     }
     glBindVertexArray(_hdr.quad_vao);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
 }
+
+#endif
 
 // }}}
 
