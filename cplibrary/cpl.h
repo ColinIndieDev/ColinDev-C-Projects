@@ -46,140 +46,144 @@
 
 // {{{ Key Inputs
 
-#define MOUSE_BUTTON_1 0
-#define MOUSE_BUTTON_2 1
-#define MOUSE_BUTTON_3 2
-#define MOUSE_BUTTON_4 3
-#define MOUSE_BUTTON_5 4
-#define MOUSE_BUTTON_6 5
-#define MOUSE_BUTTON_7 6
-#define MOUSE_BUTTON_8 7
-#define MOUSE_BUTTON_LAST MOUSE_BUTTON_8
-#define MOUSE_BUTTON_LEFT MOUSE_BUTTON_1
-#define MOUSE_BUTTON_RIGHT MOUSE_BUTTON_2
-#define MOUSE_BUTTON_MIDDLE MOUSE_BUTTON_3
+typedef enum {
+    MOUSE_BUTTON_1 = 0,
+    MOUSE_BUTTON_2,
+    MOUSE_BUTTON_3,
+    MOUSE_BUTTON_4,
+    MOUSE_BUTTON_5,
+    MOUSE_BUTTON_6,
+    MOUSE_BUTTON_7,
+    MOUSE_BUTTON_8,
+    MOUSE_BUTTON_LAST = MOUSE_BUTTON_8,
+    MOUSE_BUTTON_LEFT = MOUSE_BUTTON_1,
+    MOUSE_BUTTON_RIGHT = MOUSE_BUTTON_2,
+    MOUSE_BUTTON_MIDDLE = MOUSE_BUTTON_3,
+} mouse_buttons;
 
-#define KEY_SPACE 32
-#define KEY_APOSTROPHE 39
-#define KEY_COMMA 44
-#define KEY_MINUS 45
-#define KEY_PERIOD 46
-#define KEY_SLASH 47
-#define KEY_0 48
-#define KEY_1 49
-#define KEY_2 50
-#define KEY_3 51
-#define KEY_4 52
-#define KEY_5 53
-#define KEY_6 54
-#define KEY_7 55
-#define KEY_8 56
-#define KEY_9 57
-#define KEY_SEMICOLON 59
-#define KEY_EQUAL 61
-#define KEY_A 65
-#define KEY_B 66
-#define KEY_C 67
-#define KEY_D 68
-#define KEY_E 69
-#define KEY_F 70
-#define KEY_G 71
-#define KEY_H 72
-#define KEY_I 73
-#define KEY_J 74
-#define KEY_K 75
-#define KEY_L 76
-#define KEY_M 77
-#define KEY_N 78
-#define KEY_O 79
-#define KEY_P 80
-#define KEY_Q 81
-#define KEY_R 82
-#define KEY_S 83
-#define KEY_T 84
-#define KEY_U 85
-#define KEY_V 86
-#define KEY_W 87
-#define KEY_X 88
-#define KEY_Y 89
-#define KEY_Z 90
-#define KEY_LEFT_BRACKET 91
-#define KEY_BACKSLASH 92
-#define KEY_RIGHT_BRACKET 93
-#define KEY_GRAVE_ACCENT 96
-#define KEY_WORLD_1 161
-#define KEY_WORLD_2 162
-#define KEY_ESCAPE 256
-#define KEY_ENTER 257
-#define KEY_TAB 258
-#define KEY_BACKSPACE 259
-#define KEY_INSERT 260
-#define KEY_DELETE 261
-#define KEY_RIGHT_ARROW 262
-#define KEY_LEFT_ARROW 263
-#define KEY_DOWN_ARROW 264
-#define KEY_UP_ARROW 265
-#define KEY_PAGE_UP 266
-#define KEY_PAGE_DOWN 267
-#define KEY_HOME 268
-#define KEY_END 269
-#define KEY_CAPS_LOCK 280
-#define KEY_SCROLL_LOCK 281
-#define KEY_NUM_LOCK 282
-#define KEY_PRINT_SCREEN 283
-#define KEY_PAUSE 284
-#define KEY_F1 290
-#define KEY_F2 291
-#define KEY_F3 292
-#define KEY_F4 293
-#define KEY_F5 294
-#define KEY_F6 295
-#define KEY_F7 296
-#define KEY_F8 297
-#define KEY_F9 298
-#define KEY_F10 299
-#define KEY_F11 300
-#define KEY_F12 301
-#define KEY_F13 302
-#define KEY_F14 303
-#define KEY_F15 304
-#define KEY_F16 305
-#define KEY_F17 306
-#define KEY_F18 307
-#define KEY_F19 308
-#define KEY_F20 309
-#define KEY_F21 310
-#define KEY_F22 311
-#define KEY_F23 312
-#define KEY_F24 313
-#define KEY_F25 314
-#define KEY_KP_0 320
-#define KEY_KP_1 321
-#define KEY_KP_2 322
-#define KEY_KP_3 323
-#define KEY_KP_4 324
-#define KEY_KP_5 325
-#define KEY_KP_6 326
-#define KEY_KP_7 327
-#define KEY_KP_8 328
-#define KEY_KP_9 329
-#define KEY_KP_DECIMAL 330
-#define KEY_KP_DIVIDE 331
-#define KEY_KP_MULTIPLY 332
-#define KEY_KP_SUBTRACT 333
-#define KEY_KP_ADD 334
-#define KEY_KP_ENTER 335
-#define KEY_KP_EQUAL 336
-#define KEY_LEFT_SHIFT 340
-#define KEY_LEFT_CONTROL 341
-#define KEY_LEFT_ALT 342
-#define KEY_LEFT_SUPER 343
-#define KEY_RIGHT_SHIFT 344
-#define KEY_RIGHT_CONTROL 345
-#define KEY_RIGHT_ALT 346
-#define KEY_RIGHT_SUPER 347
-#define KEY_MENU 348
-#define KEY_LAST GLFW_KEY_MENU
+typedef enum {
+    KEY_SPACE = 32,
+    KEY_APOSTROPHE = 39,
+    KEY_COMMA = 44,
+    KEY_MINUS,
+    KEY_PERIOD,
+    KEY_SLASH,
+    KEY_DIGIT_0,
+    KEY_DIGIT_1,
+    KEY_DIGIT_2,
+    KEY_DIGIT_3,
+    KEY_DIGIT_4,
+    KEY_DIGIT_5,
+    KEY_DIGIT_6,
+    KEY_DIGIT_7,
+    KEY_DIGIT_8,
+    KEY_DIGIT_9,
+    KEY_SEMICOLON = 59,
+    KEY_EQUAL = 61,
+    KEY_LETTER_A = 65,
+    KEY_LETTER_B,
+    KEY_LETTER_C,
+    KEY_LETTER_D,
+    KEY_LETTER_E,
+    KEY_LETTER_F,
+    KEY_LETTER_G,
+    KEY_LETTER_H,
+    KEY_LETTER_I,
+    KEY_LETTER_J,
+    KEY_LETTER_K,
+    KEY_LETTER_L,
+    KEY_LETTER_M,
+    KEY_LETTER_N,
+    KEY_LETTER_O,
+    KEY_LETTER_P,
+    KEY_LETTER_Q,
+    KEY_LETTER_R,
+    KEY_LETTER_S,
+    KEY_LETTER_T,
+    KEY_LETTER_U,
+    KEY_LETTER_V,
+    KEY_LETTER_W,
+    KEY_LETTER_X,
+    KEY_LETTER_Y,
+    KEY_LETTER_Z,
+    KEY_LEFT_BRACKET,
+    KEY_BACKSLASH,
+    KEY_RIGHT_BRACKET,
+    KEY_GRAVE_ACCENT = 96,
+    KEY_WORLD_1 = 161,
+    KEY_WORLD_2,
+    KEY_ESCAPE = 256,
+    KEY_ENTER,
+    KEY_TAB,
+    KEY_BACKSPACE,
+    KEY_INSERT,
+    KEY_DELETE,
+    KEY_RIGHT_ARROW,
+    KEY_LEFT_ARROW,
+    KEY_DOWN_ARROW,
+    KEY_UP_ARROW,
+    KEY_PAGE_UP,
+    KEY_PAGE_DOWN,
+    KEY_HOME,
+    KEY_END,
+    KEY_CAPS_LOCK = 280,
+    KEY_SCROLL_LOCK,
+    KEY_NUM_LOCK,
+    KEY_PRINT_SCREEN,
+    KEY_PAUSE,
+    KEY_F1 = 290,
+    KEY_F2,
+    KEY_F3,
+    KEY_F4,
+    KEY_F5,
+    KEY_F6,
+    KEY_F7,
+    KEY_F8,
+    KEY_F9,
+    KEY_F10,
+    KEY_F11,
+    KEY_F12,
+    KEY_F13,
+    KEY_F14,
+    KEY_F15,
+    KEY_F16,
+    KEY_F17,
+    KEY_F18,
+    KEY_F19,
+    KEY_F20,
+    KEY_F21,
+    KEY_F22,
+    KEY_F23,
+    KEY_F24,
+    KEY_F25,
+    KEY_KP_0 = 320,
+    KEY_KP_1,
+    KEY_KP_2,
+    KEY_KP_3,
+    KEY_KP_4,
+    KEY_KP_5,
+    KEY_KP_6,
+    KEY_KP_7,
+    KEY_KP_8,
+    KEY_KP_9,
+    KEY_KP_DECIMAL,
+    KEY_KP_DIVIDE,
+    KEY_KP_MULTIPLY,
+    KEY_KP_SUBTRACT,
+    KEY_KP_ADD,
+    KEY_KP_ENTER,
+    KEY_KP_EQUAL,
+    KEY_LEFT_SHIFT = 340,
+    KEY_LEFT_CONTROL,
+    KEY_LEFT_ALT,
+    KEY_LEFT_SUPER,
+    KEY_RIGHT_SHIFT,
+    KEY_RIGHT_CONTROL,
+    KEY_RIGHT_ALT,
+    KEY_RIGHT_SUPER,
+    KEY_MENU,
+    KEY_LAST = GLFW_KEY_MENU
+} key_buttons;
 
 // }}}
 
@@ -206,12 +210,10 @@ typedef enum {
 typedef vec4f color_t;
 
 #define RGB(r, g, b) (color_t){r, g, b, 255}
-#define RGBA(r, g, b, a)                                                       \
-    (color_t) { r, g, b, a }
+#define RGBA(r, g, b, a) (color_t) { r, g, b, a }
 
 #define RGB_NORM(r, g, b) (color_t){(r) * 255, (g) * 255, (b) * 255, 255}
-#define RGBA_NORM(r, g, b, a)                                                  \
-    (color_t){(r) * 255, (g) * 255, (b) * 255, (a) * 255}
+#define RGBA_NORM(r, g, b, a) (color_t){(r) * 255, (g) * 255, (b) * 255, (a) * 255}
 
 #define WHITE RGB(255, 255, 255)
 #define BLACK RGB(0, 0, 0)
@@ -1288,6 +1290,13 @@ typedef enum : uint8_t {
     NET_PACKET_AUDIO_VOICE_MSG = -1 
 } net_packet_id;
 
+typedef enum : uint8_t {
+    NET_CHANNEL_RELIABLE = 0,
+    NET_CHANNEL_UNRELIABLE,
+    NET_CHANNEL_VOICE_CHAT,
+    NET_CHANNELS_SIZE 
+} net_channels;
+
 #define NET_SEC(s) ((s) * 1000)
 
 #ifdef CPL_IMPL
@@ -1309,15 +1318,16 @@ typedef struct {
 
 bool _net_worker_running = true;
 ENetHost *_host = NULL;
-void (*_parse_func)(char *, size_t, void *) = NULL;
+void (*_parse_func)(char *, size_t, net_channels, void *) = NULL;
 void *_parse_arg = NULL;
 pthread_t _net_worker;
 
 #endif
 
 void *_client_net_worker_loop();
-void client_create_worker_loop(client_t *client, void (*parse_data)(char *, size_t, void *), void *parse_data_arg);
+void client_create_worker_loop(client_t *client, void (*parse_data)(char *, size_t, net_channels, void *), void *parse_data_arg);
 void client_destroy_worker_loop();
+char *read_ip_from_txt_file(char *path);
 bool client_create(client_t *client, char *ip, int port, int wait_ms);
 void client_destroy(client_t *client, int wait_ms);
 
@@ -1329,14 +1339,14 @@ void *_client_net_worker_loop() {
         pthread_mutex_lock(&_net_mutex);
         if (enet_host_service(_host, &event, 0) > 0) {
             if (event.type == ENET_EVENT_TYPE_RECEIVE) {
-                _parse_func((char *)event.packet->data, event.packet->dataLength, _parse_arg);
+                _parse_func((char *)event.packet->data, event.packet->dataLength, event.channelID, _parse_arg);
                 enet_packet_destroy(event.packet);
             }
         }
 
         while (enet_host_check_events(_host, &event) > 0) {
             if (event.type == ENET_EVENT_TYPE_RECEIVE) {
-                _parse_func((char *)event.packet->data, event.packet->dataLength, _parse_arg);
+                _parse_func((char *)event.packet->data, event.packet->dataLength, event.channelID, _parse_arg);
                 enet_packet_destroy(event.packet);
             }
         }
@@ -1348,7 +1358,7 @@ void *_client_net_worker_loop() {
     }
     return NULL;
 }
-void client_create_worker_loop(client_t *client, void (*parse_data)(char *, size_t, void *), void *parse_data_arg) {
+void client_create_worker_loop(client_t *client, void (*parse_data)(char *, size_t, net_channels, void *), void *parse_data_arg) {
     _host = client->client;
     _parse_func = parse_data;
     _parse_arg = parse_data_arg;
@@ -1357,6 +1367,45 @@ void client_create_worker_loop(client_t *client, void (*parse_data)(char *, size
 void client_destroy_worker_loop() {
     _net_worker_running = false;
     pthread_join(_net_worker, NULL);
+}
+char *read_ip_from_txt_file(char *path) {
+    FILE *file = fopen(path, "rb");
+    if (!file) {
+        return NULL;
+    }
+
+    if (fseek(file, 0, SEEK_END) != 0) {
+        fclose(file);
+        return NULL;
+    }
+    long file_size = ftell(file);
+    if (file_size == -1) {
+        fclose(file);
+        return NULL;
+    }
+    if (fseek(file, 0, SEEK_SET) != 0) {
+        fclose(file);
+        return NULL;
+    }
+
+    char *buffer = malloc(file_size + 1);
+    if (!buffer) {
+        fclose(file);
+        return NULL;
+    }
+
+    size_t bytes_read = fread(buffer, 1, file_size, file);
+    if (bytes_read != file_size) {
+        free(buffer);
+        fclose(file);
+        return NULL;
+    }
+
+    buffer[file_size] = '\0';
+    buffer[strcspn(buffer, "\r\n")] = '\0';
+
+    fclose(file);
+    return buffer;
 }
 bool client_create(client_t *client, char *ip, int port, int wait_ms) {
     if (enet_initialize()) {
@@ -1380,7 +1429,7 @@ bool client_create(client_t *client, char *ip, int port, int wait_ms) {
     enet_address_set_host(&client->address, ip);
     client->address.port = port;
 
-    client->peer = enet_host_connect(client->client, &client->address, 1, 0);
+    client->peer = enet_host_connect(client->client, &client->address, NET_CHANNELS_SIZE, 0);
     if (!client->peer) {
         fprintf(stderr, "No peers available for connection\n");
         exit(-1);
@@ -1429,7 +1478,7 @@ void server_init(server_t *server, int port, struct in6_addr host, int max_clien
     server->address.host = host;
     server->address.port = port;
 
-    server->server = enet_host_create(&server->address, max_clients, 1, 0, 0);
+    server->server = enet_host_create(&server->address, max_clients, NET_CHANNELS_SIZE, 0, 0);
     if (!server) {
         fprintf(stderr, "Failed to create server host\n");
         exit(-1);
@@ -1580,30 +1629,30 @@ void *packet_read_array(packet_reader *reader, size_t total_size) {
 
 // }}}
 
-void packet_send_to_server(client_t *client, packet_writer *writer, int packet_flag);
-void packet_send_to_client(ENetPeer *peer, packet_writer *writer, int packet_flag);
-void packet_broadcast(server_t *server, packet_writer *writer, int packet_flag);
+void packet_send_to_server(client_t *client, packet_writer *writer, int packet_flag, net_channels channel);
+void packet_send_to_client(ENetPeer *peer, packet_writer *writer, int packet_flag, net_channels channel);
+void packet_broadcast(server_t *server, packet_writer *writer, int packet_flag, net_channels channel);
 
 #ifdef CPL_IMPL
 
-void packet_send_to_server(client_t *client, packet_writer *writer, int packet_flag) {
+void packet_send_to_server(client_t *client, packet_writer *writer, int packet_flag, net_channels channel) {
     if (client->peer->state != ENET_PEER_STATE_CONNECTED) {
         return;
     }
     pthread_mutex_lock(&_net_mutex);
     ENetPacket *packet = enet_packet_create(writer->data, writer->size, packet_flag);
-    if (enet_peer_send(client->peer, 0, packet) < 0) {
+    if (enet_peer_send(client->peer, channel, packet) < 0) {
         enet_packet_destroy(packet);
     }
     pthread_mutex_unlock(&_net_mutex);
 }
-void packet_send_to_client(ENetPeer *peer, packet_writer *writer, int packet_flag) {
+void packet_send_to_client(ENetPeer *peer, packet_writer *writer, int packet_flag, net_channels channel) {
     ENetPacket *packet = enet_packet_create(writer->data, writer->size, packet_flag);
-    enet_peer_send(peer, 0, packet);
+    enet_peer_send(peer, channel, packet);
 }
-void packet_broadcast(server_t *server, packet_writer *writer, int packet_flag) {
+void packet_broadcast(server_t *server, packet_writer *writer, int packet_flag, net_channels channel) {
     ENetPacket *packet = enet_packet_create(writer->data, writer->size, packet_flag);
-    enet_host_broadcast(server->server, 0, packet);
+    enet_host_broadcast(server->server, channel, packet);
 }
 
 #endif
@@ -1765,7 +1814,7 @@ void _audio_microphone_callback(ma_device *device, void *out, const void *in, un
     packet_write_int(&writer, *_id);
     packet_write_uint(&writer, frame_cnt);
     packet_write_array(&writer, samples, frame_cnt * sizeof(float));
-    packet_send_to_server(_client, &writer, NET_PACKET_UNRELIABLE);
+    packet_send_to_server(_client, &writer, NET_PACKET_UNRELIABLE, NET_CHANNEL_VOICE_CHAT);
 }
 void audio_server_broadcast_voice_msg(packet_reader *reader, server_t *server) {
     int id = packet_read_int(reader);
@@ -1779,7 +1828,7 @@ void audio_server_broadcast_voice_msg(packet_reader *reader, server_t *server) {
     packet_write_uint(&writer, frame_cnt);
     packet_write_array(&writer, samples, frame_cnt * sizeof(float));
 
-    packet_broadcast(server, &writer, NET_PACKET_UNRELIABLE);
+    packet_broadcast(server, &writer, NET_PACKET_UNRELIABLE, NET_CHANNEL_VOICE_CHAT);
 
     free(samples);
 }
@@ -2117,13 +2166,13 @@ bool _prev_mouse_button_states[MOUSE_BUTTON_LAST + 1];
 #endif
 
 void _input_update();
-bool is_key_down(int key);
-bool is_key_up(int key);
-bool is_key_pressed(int key);
-bool is_key_released(int key);
-bool is_mouse_down(int button);
-bool is_mouse_pressed(int button);
-bool is_mouse_released(int button);
+bool is_key_down(key_buttons key);
+bool is_key_up(key_buttons key);
+bool is_key_pressed(key_buttons key);
+bool is_key_released(key_buttons key);
+bool is_mouse_down(mouse_buttons button);
+bool is_mouse_pressed(mouse_buttons button);
+bool is_mouse_released(mouse_buttons button);
 mat4f *cam_2D_get_view_mat(cam_2D *cam);
 cam_2D *get_cam_2D();
 vec2f get_mouse_pos();
@@ -2146,22 +2195,26 @@ void _input_update() {
         _mouse_button_states[button - MOUSE_BUTTON_1] = glfwGetMouseButton(_window, (int)button) == GLFW_PRESS;
     }
 }
-bool is_key_down(int key) { return _key_states[key - KEY_SPACE]; }
-bool is_key_up(int key) { return !_key_states[key - KEY_SPACE]; }
-bool is_key_pressed(int key) {
-    return _key_states[key - KEY_SPACE] && !_prev_key_states[key - KEY_SPACE];
+bool is_key_down(key_buttons key) { 
+    return _key_states[(int)key - KEY_SPACE]; 
 }
-bool is_key_released(int key) {
-    return !_key_states[key - KEY_SPACE] && _prev_key_states[key - KEY_SPACE];
+bool is_key_up(key_buttons key) { 
+    return !_key_states[(int)key - KEY_SPACE]; 
 }
-bool is_mouse_down(int button) {
-    return _mouse_button_states[button - MOUSE_BUTTON_1];
+bool is_key_pressed(key_buttons key) {
+    return _key_states[(int)key - KEY_SPACE] && !_prev_key_states[(int)key - KEY_SPACE];
 }
-bool is_mouse_pressed(int button) {
-    return _mouse_button_states[button - MOUSE_BUTTON_1] && !_prev_mouse_button_states[button - MOUSE_BUTTON_1];
+bool is_key_released(key_buttons key) {
+    return !_key_states[(int)key - KEY_SPACE] && _prev_key_states[(int)key - KEY_SPACE];
 }
-bool is_mouse_released(int button) {
-    return !_mouse_button_states[button - MOUSE_BUTTON_1] && _prev_mouse_button_states[button - MOUSE_BUTTON_1];
+bool is_mouse_down(mouse_buttons button) {
+    return _mouse_button_states[(int)button - MOUSE_BUTTON_1];
+}
+bool is_mouse_pressed(mouse_buttons button) {
+    return _mouse_button_states[(int)button - MOUSE_BUTTON_1] && !_prev_mouse_button_states[(int)button - MOUSE_BUTTON_1];
+}
+bool is_mouse_released(mouse_buttons button) {
+    return !_mouse_button_states[(int)button - MOUSE_BUTTON_1] && _prev_mouse_button_states[(int)button - MOUSE_BUTTON_1];
 }
 mat4f *cam_2D_get_view_mat(cam_2D *cam) {
     mat4f *view = malloc(sizeof(mat4f));
@@ -2211,6 +2264,18 @@ typedef enum {
     _DRAW_MODES_COUNT
 } draw_mode;
 
+#ifndef __EMSCRIPTEN__
+#define SHADER_FRAG_PATH(s) "shaders/frag/" s ".frag"
+#else
+#define SHADER_FRAG_PATH(s) "/shaders/frag/" s "_w.frag"
+#endif
+
+#ifndef __EMSCRIPTEN__
+#define SHADER_VERT_PATH(s) "shaders/vert/" s ".vert"
+#else
+#define SHADER_VERT_PATH(s) "/shaders/vert/" s "_w.vert"
+#endif
+
 #ifdef CPL_IMPL
 
 GLubyte *_renderer;
@@ -2254,27 +2319,18 @@ void _web_window_resize() {
 #ifdef __EMSCRIPTEN__
     int w = emscripten_run_script_int("window.innerWidth");
     int h = emscripten_run_script_int("window.innerHeight");
-    if ((float)w != _screen_width || (float)h != _screen_height) {
+    if ((float)w != (float)_screen_width || (float)h != (float)_screen_height) {
         glfwSetWindowSize(_window, w, h);
     }
 #endif
 }
 void _init_shaders() {
-#ifndef __EMSCRIPTEN__
-    shader_create(&_shaders[SHAPE_2D_UNLIT], "shaders/vert/2D/shape.vert", "shaders/frag/2D/shape_unlit.frag");
-    shader_create(&_shaders[SHAPE_2D_LIT], "shaders/vert/2D/shape.vert", "shaders/frag/2D/shape_lit.frag");
-    shader_create(&_shaders[TEXT], "shaders/vert/2D/text.vert", "shaders/frag/2D/text.frag");
-    shader_create(&_shaders[TEXTURE_2D_UNLIT], "shaders/vert/2D/texture.vert", "shaders/frag/2D/texture_unlit.frag");
-    shader_create(&_shaders[TEXTURE_2D_LIT], "shaders/vert/2D/texture.vert", "shaders/frag/2D/texture_lit.frag");
-    shader_create(&_hdr_shader, "shaders/vert/2D/hdr.vert", "shaders/frag/2D/hdr.frag");
-#else
-    shader_create(&_shaders[SHAPE_2D_UNLIT], "/shaders/vert/2D/shape_w.vert", "/shaders/frag/2D/shape_unlit_w.frag");
-    shader_create(&_shaders[SHAPE_2D_LIT], "/shaders/vert/2D/shape_w.vert", "/shaders/frag/2D/shape_lit_w.frag");
-    shader_create(&_shaders[TEXT], "/shaders/vert/2D/text_w.vert", "/shaders/frag/2D/text_w.frag");
-    shader_create(&_shaders[TEXTURE_2D_UNLIT], "/shaders/vert/2D/texture_w.vert", "/shaders/frag/2D/texture_unlit_w.frag");
-    shader_create(&_shaders[TEXTURE_2D_LIT], "/shaders/vert/2D/texture_w.vert", "/shaders/frag/2D/texture_lit_w.frag");
-    shader_create(&_hdr_shader, "/shaders/vert/2D/hdr_w.vert", "/shaders/frag/2D/hdr_w.frag");
-#endif
+    shader_create(&_shaders[SHAPE_2D_UNLIT], SHADER_VERT_PATH("2D/shape"), SHADER_FRAG_PATH("2D/shape_unlit"));
+    shader_create(&_shaders[SHAPE_2D_LIT], SHADER_VERT_PATH("2D/shape"), SHADER_FRAG_PATH("2D/shape_lit"));
+    shader_create(&_shaders[TEXT], SHADER_VERT_PATH("2D/text"), SHADER_FRAG_PATH("2D/text"));
+    shader_create(&_shaders[TEXTURE_2D_UNLIT], SHADER_VERT_PATH("2D/texture"), SHADER_FRAG_PATH("2D/texture_unlit"));
+    shader_create(&_shaders[TEXTURE_2D_LIT], SHADER_VERT_PATH("2D/texture"), SHADER_FRAG_PATH("2D/texture_lit"));
+    shader_create(&_hdr_shader, SHADER_VERT_PATH("2D/hdr"), SHADER_FRAG_PATH("2D/hdr"));
 }
 void window_init(unsigned int width, unsigned int height, char *title, opengl_versions version) {
     glfwInit();
@@ -2294,10 +2350,12 @@ void window_init(unsigned int width, unsigned int height, char *title, opengl_ve
     emscripten_get_element_css_size("#canvas", &browser_w, &browser_h);
     width = (int)browser_w;
     height = (int)browser_h;
-    if (width <= 0)
+    if (width <= 0) {
         width = emscripten_run_script_int("window.innerWidth");
-    if (height <= 0)
+    }
+    if (height <= 0) {
         height = emscripten_run_script_int("window.innerHeight");
+    }
 #endif
 
     _screen_width = width;
@@ -2305,7 +2363,7 @@ void window_init(unsigned int width, unsigned int height, char *title, opengl_ve
 
     _window = glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
     if (!_window) {
-        cpl_log(LOG_ERR, "[CPL] [ERROR] Failed to create window");
+        cpl_log(LOG_ERR, "Failed to create window");
         glfwTerminate();
         exit(-1);
     }
@@ -2314,7 +2372,7 @@ void window_init(unsigned int width, unsigned int height, char *title, opengl_ve
     glfwSetFramebufferSizeCallback(_window, _framebuffer_size_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)(glfwGetProcAddress))) {
-        cpl_log(LOG_ERR, "[CPL] [ERROR] Failed to initialize GLAD");
+        cpl_log(LOG_ERR, "Failed to initialize GLAD");
         exit(-1);
     }
 
@@ -2333,13 +2391,27 @@ void window_init(unsigned int width, unsigned int height, char *title, opengl_ve
     _vendor = (GLubyte *)glGetString(GL_VENDOR);
     _version = (GLubyte *)glGetString(GL_VERSION);
 }
-bool window_should_close() { return glfwWindowShouldClose(_window); }
-void window_destroy() { glfwSetWindowShouldClose(_window, 1); }
-void window_close() { glfwTerminate(); }
-unsigned int get_screen_width() { return _screen_width; }
-unsigned int get_screen_height() { return _screen_height; }
-vec2f get_screen_size() { return VEC2F(_screen_width, _screen_height); }
-void enable_vsync(bool enabled) { glfwSwapInterval(enabled); }
+bool window_should_close() { 
+    return glfwWindowShouldClose(_window); 
+}
+void window_destroy() { 
+    glfwSetWindowShouldClose(_window, 1); 
+}
+void window_close() { 
+    glfwTerminate(); 
+}
+unsigned int get_screen_width() { 
+    return _screen_width; 
+}
+unsigned int get_screen_height() { 
+    return _screen_height; 
+}
+vec2f get_screen_size() { 
+    return VEC2F(_screen_width, _screen_height); 
+}
+void enable_vsync(bool enabled) { 
+    glfwSwapInterval(enabled); 
+}
 void update() {
     _calc_fps();
     _calc_dt();
