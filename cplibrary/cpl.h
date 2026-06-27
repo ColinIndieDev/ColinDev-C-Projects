@@ -22,6 +22,7 @@
 #include <unistd.h>
 
 #ifdef CPL_IMPL
+#define MA_NO_RUNTIME_LINKING
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define MINIAUDIO_IMPLEMENTATION
@@ -1510,6 +1511,7 @@ void packet_write_float(packet_writer *writer, float val);
 void packet_write_double(packet_writer *writer, double val);
 void packet_write_bool(packet_writer *writer, bool val);
 void packet_write_array(packet_writer *writer, void *arr, size_t total_size);
+void packet_write_vec2f(packet_writer *writer, vec2f v);
 
 #ifdef CPL_IMPL
 
@@ -1548,6 +1550,10 @@ void packet_write_array(packet_writer *writer, void *arr, size_t total_size) {
     memcpy(&writer->data[writer->size], arr, total_size);
     writer->size += total_size;
 }
+void packet_write_vec2f(packet_writer *writer, vec2f v) {
+    packet_write_float(writer, v.x);
+    packet_write_float(writer, v.y);
+}
 
 #endif
 
@@ -1570,6 +1576,7 @@ float packet_read_float(packet_reader *reader);
 double packet_read_double(packet_reader *reader);
 bool packet_read_bool(packet_reader *reader);
 void *packet_read_array(packet_reader *reader, size_t total_size);
+vec2f packet_read_vec2f(packet_reader *reader);
 
 #ifdef CPL_IMPL
 
@@ -1623,6 +1630,9 @@ void *packet_read_array(packet_reader *reader, size_t total_size) {
     memcpy(arr, &reader->data[reader->pos], total_size);
     reader->pos += total_size;
     return arr;
+}
+vec2f packet_read_vec2f(packet_reader *reader) {
+    return VEC2F(packet_read_float(reader), packet_read_float(reader));
 }
 
 #endif
