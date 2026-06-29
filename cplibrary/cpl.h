@@ -237,6 +237,8 @@ namespace cpl {
 extern "C" {
 #endif
 
+#define CPL_IMPL
+
 // {{{ Logging
 
 typedef enum { 
@@ -1142,7 +1144,7 @@ typedef struct {
 void font_load(font *f, char *path, char *name, texture_filtering filter);
 void font_delete(font *f);
 void text_draw_raw(shader *s, font *f, char *text, vec2f pos, float scale, vec4f color);
-vec2f text_get_size(font *f, char *text, float scale);
+vec2f text_get_size(font *f, float scale, char *text, ...);
 
 #ifdef CPL_IMPL
 
@@ -1258,14 +1260,22 @@ void text_draw_raw(shader *s, font *f, char *text, vec2f pos, float scale, vec4f
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
-vec2f text_get_size(font *f, char *text, float scale) {
+vec2f text_get_size(font *f, float scale, char *text, ...) {
     float width = 0.0f;
     float height = 0.0f;
     float max_above_base = 0.0f;
     float max_below_base = 0.0f;
 
-    for (unsigned int i = 0; i < strlen(text); i++) {
-        letter *l = &f->letters[text[i]];
+    char buffer[KiB(1)];
+    if (text) {
+        va_list args;
+        va_start(args, text);
+        vsnprintf(buffer, 1024, text, args);
+        va_end(args);
+    }
+
+    for (unsigned int i = 0; i < strlen(buffer); i++) {
+        letter *l = &f->letters[buffer[i]];
         float h = l->size.y * scale;
         max_above_base = math_max(max_above_base, l->bearing.y * scale);
         max_below_base = math_max(max_below_base, (h - (l->bearing.y * scale)));
@@ -2104,8 +2114,10 @@ bool check_collision_vec2f_circle(vec2f a, circle_collider b) {
 unsigned int _nb_frames = 0;
 float _last_time = 0.0f;
 float _last_frame = 0.0f;
+float _first_frame = 0.0f;
 float _dt = 0.0f;
 float _time_scale = 1.0f;
+float _target_frame_time = 0.0f;
 unsigned int _fps = 0;
 
 #endif
@@ -2117,6 +2129,8 @@ void _calc_dt();
 float get_dt();
 float get_time_scale();
 void set_time_scale(float scale);
+void set_target_fps(unsigned int fps);
+void _update_target_fps();
 
 #ifdef CPL_IMPL
 
@@ -2140,15 +2154,29 @@ void _calc_fps() {
         _last_time += 1.0f;
     }
 }
-unsigned int get_fps() { return _fps; }
+unsigned int get_fps() { 
+    return _fps; 
+}
 void _calc_dt() {
     float cur_frame = get_time();
     _dt = (cur_frame - _last_frame) * _time_scale;
     _last_frame = cur_frame;
 }
-float get_dt() { return _dt; }
-float get_time_scale() { return _time_scale; }
-void set_time_scale(float scale) { _time_scale = scale; }
+float get_dt() { 
+    return _dt; 
+}
+float get_time_scale() { 
+    return _time_scale; 
+}
+void set_time_scale(float scale) { 
+    _time_scale = scale; 
+}
+void set_target_fps(unsigned int fps) {
+    _target_frame_time = 1.0f / fps;
+}
+void _update_target_fps() {
+    while (get_time() - _first_frame < _target_frame_time) {}
+}
 
 #endif
 
@@ -2422,6 +2450,7 @@ void enable_vsync(bool enabled) {
     glfwSwapInterval(enabled); 
 }
 void update() {
+    _first_frame = get_time();
     _calc_fps();
     _calc_dt();
     _input_update();
@@ -2429,6 +2458,7 @@ void update() {
 void end_frame() {
     glfwSwapBuffers(_window);
     glfwPollEvents();
+    _update_target_fps();
 }
 
 #endif
@@ -2443,8 +2473,8 @@ void draw_rect(vec2f pos, vec2f size, vec4f color, float rot);
 void draw_triangle(vec2f pos, vec2f size, vec4f color, float rot);
 void draw_circle(vec2f pos, float radius, vec4f color);
 void draw_line(vec2f start, vec2f end, float thickness, vec4f color);
-void draw_text(font *font, char *text, vec2f pos, float scale, vec4f color);
-void draw_text_shadow(font *font, char *text, vec2f pos, float scale, vec4f color, vec2f shadow_off, vec4f shadow_color);
+void draw_text(font *font, vec2f pos, float scale, vec4f color, char *text, ...);
+void draw_text_shadow(font *font, vec2f pos, float scale, vec4f color, vec2f shadow_off, vec4f shadow_color, char *text, ...);
 void draw_texture2D(texture *tex, vec2f pos, vec2f size, vec4f color, float rot);
 void _reset_shader();
 void display_details(font *font);
@@ -2493,14 +2523,26 @@ void draw_line(vec2f start, vec2f end, float thickness, vec4f color) {
     glLineWidth(1.0f);
     line_destroy(&l);
 }
-void draw_text(font *font, char *text, vec2f pos, float scale, vec4f color) {
-    text_draw_raw(&_shaders[_cur_draw_mode], font, text, pos, scale, color);
+void draw_text(font *font, vec2f pos, float scale, vec4f color, char *text, ...) {
+    char buffer[KiB(1)];
+    if (text) {
+        va_list args;
+        va_start(args, text);
+        vsnprintf(buffer, 1024, text, args);
+        va_end(args);
+    }
+    text_draw_raw(&_shaders[_cur_draw_mode], font, buffer, pos, scale, color);
 }
-void draw_text_shadow(font *font, char *text, vec2f pos, float scale, vec4f color, vec2f shadow_off, vec4f shadow_color) {
-    text_draw_raw(&_shaders[_cur_draw_mode], font, text,
-                  VEC2F(pos.x + shadow_off.x, pos.y + shadow_off.y), scale,
-                  shadow_color);
-    text_draw_raw(&_shaders[_cur_draw_mode], font, text, pos, scale, color);
+void draw_text_shadow(font *font, vec2f pos, float scale, vec4f color, vec2f shadow_off, vec4f shadow_color, char *text, ...) {
+    char buffer[KiB(1)];
+    if (text) {
+        va_list args;
+        va_start(args, text);
+        vsnprintf(buffer, 1024, text, args);
+        va_end(args);
+    }
+    text_draw_raw(&_shaders[_cur_draw_mode], font, buffer, VEC2F(pos.x + shadow_off.x, pos.y + shadow_off.y), scale, shadow_color);
+    text_draw_raw(&_shaders[_cur_draw_mode], font, buffer, pos, scale, color);
 }
 void draw_texture2D(texture *tex, vec2f pos, vec2f size, vec4f color, float rot) {
     texture2D t;
@@ -2512,41 +2554,17 @@ void _reset_shader() { shader_use(&_shaders[_cur_draw_mode]); }
 void display_details(font *font) {
     begin_draw(TEXT, false);
 
-    char version_str[50];
-    char renderer_str[50];
-    char vendor_str[50];
-    char fps[15];
-    char stack_used[50];
-    char heap_total[50];
-    char heap_used[50];
-    char heap_free[50];
-
-    snprintf(version_str, 50, "OpenGL version: %s", _version);
-    snprintf(renderer_str, 50, "Renderer: %s", _renderer);
-    snprintf(vendor_str, 50, "Vendor: %s", _vendor);
-    snprintf(fps, 15, "FPS: %d", get_fps());
-
+    draw_text(font, VEC2F(10.0f, 10.0f), 0.5f, WHITE, "OpenGL version: %s", _version);
+    draw_text(font, VEC2F(10.0f, 40.0f), 0.5f, WHITE, "Renderer: %s", _renderer);
+    draw_text(font, VEC2F(10.0f, 70.0f), 0.5f, WHITE, "Vendor: %s", _vendor);
+    draw_text(font, VEC2F(10.0f, 100.0f), 0.5f, WHITE, "FPS: %d", get_fps());
 #ifdef __linux__
-    snprintf(stack_used, 50, "Stack used: %.3f / %.3f MiB (%f%%)",
-             MiB((float)profiler_get_stack_used()), MiB((float)profiler_get_stack_size()),
-             (float)profiler_get_stack_used() / (float)profiler_get_stack_size());
-    snprintf(heap_total, 50, "Heap size: %d MB",
-             (int)MiB((float)profiler_get_heap_size()));
-    snprintf(heap_used, 50, "Heap used: %d MB",
-             (int)MiB((float)profiler_get_heap_used()));
-    snprintf(heap_free, 50, "Heap free: %d MB",
-             (int)MiB((float)profiler_get_heap_free()));
-#endif
-
-    draw_text(font, version_str, VEC2F(10.0f, 10.0f), 0.5f, WHITE);
-    draw_text(font, renderer_str, VEC2F(10.0f, 40.0f), 0.5f, WHITE);
-    draw_text(font, vendor_str, VEC2F(10.0f, 70.0f), 0.5f, WHITE);
-    draw_text(font, fps, VEC2F(10.0f, 100.0f), 0.5f, WHITE);
-#ifdef __linux__
-    draw_text(font, stack_used, VEC2F(10.0f, 130.0f), 0.5f, WHITE);
-    draw_text(font, heap_total, VEC2F(10.0f, 160.0f), 0.5f, WHITE);
-    draw_text(font, heap_used, VEC2F(10.0f, 190.0f), 0.5f, WHITE);
-    draw_text(font, heap_free, VEC2F(10.0f, 220.0f), 0.5f, WHITE);
+    draw_text(font, VEC2F(10.0f, 130.0f), 0.5f, WHITE, "Stack used: %.3f / %.3f MiB (%f%%)",
+              (float)profiler_get_stack_used() / 1024.0f / 1024.0f, (float)profiler_get_stack_size() / 1024.0f / 1024.0f,
+              (float)profiler_get_stack_used() / (float)profiler_get_stack_size());
+    draw_text(font, VEC2F(10.0f, 160.0f), 0.5f, WHITE, "Heap size: %d MiB", profiler_get_heap_size() / 1024 / 1024);
+    draw_text(font, VEC2F(10.0f, 190.0f), 0.5f, WHITE, "Heap used: %d MiB", profiler_get_heap_used() / 1024 / 1024);
+    draw_text(font, VEC2F(10.0f, 220.0f), 0.5f, WHITE, "Heap free: %d MiB", profiler_get_heap_free() / 1024 / 1024);
 #endif
 }
 
