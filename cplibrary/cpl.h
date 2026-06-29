@@ -237,8 +237,6 @@ namespace cpl {
 extern "C" {
 #endif
 
-#define CPL_IMPL
-
 // {{{ Logging
 
 typedef enum { 
