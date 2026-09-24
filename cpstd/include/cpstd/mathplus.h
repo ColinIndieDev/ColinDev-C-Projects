@@ -55,6 +55,14 @@ float vec2f_length   (vec2f a);
 vec2f vec2f_clamp    (vec2f v, vec2f n, vec2f m);
 vec2f vec2f_norm     (vec2f v);
 
+vec3f vec3f_sub   (vec3f a, vec3f b);
+vec3f vec3f_scale (vec3f v, float s);
+vec3f vec3f_add   (vec3f a, vec3f b);
+float vec3f_dot   (vec3f a, vec3f b);
+vec3f vec3f_cross (vec3f a, vec3f b);
+float vec3f_length(vec3f v);
+vec3f vec3f_norm  (vec3f v);
+
 typedef float mat4f[16];
 
 void  mat4f_identity (mat4f *m);
@@ -64,5 +72,9 @@ void  mat4f_scale    (mat4f *m, vec3f v);
 vec4f mat4f_mul_vec4f(mat4f *m, vec4f v);
 void  mat4f_mul      (mat4f *a, mat4f *b, mat4f *dest);
 void  mat4f_ortho    (mat4f *m, float left, float right, float bottom, float top, float near, float far);
+void  mat4f_perspective(mat4f *m, float near, float far, float fov, float aspect);
+void  mat4f_look_at  (mat4f *m, vec3f eye, vec3f center, vec3f up);
 float mat4f_det      (mat4f *m);
+float mat4f_get_float(mat4f *m, unsigned int c, unsigned int r);
 void  mat4f_inv      (mat4f *m, mat4f *out);
+void  mat4f_transpose(mat4f *m, mat4f *out);

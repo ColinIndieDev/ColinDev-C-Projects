@@ -85,6 +85,29 @@ vec2f vec2f_norm(vec2f v) {
                    v.y / sqrtf((v.x * v.x) + (v.y * v.y))};
 }
 
+vec3f vec3f_sub(vec3f a, vec3f b) { 
+    return (vec3f){a.x - b.x, a.y - b.y, a.z - b.z}; 
+}
+vec3f vec3f_scale(vec3f v, float s) { 
+    return (vec3f){v.x * s, v.y * s, v.z * s}; 
+}
+vec3f vec3f_add(vec3f a, vec3f b) { 
+    return (vec3f){a.x + b.x, a.y + b.y, a.z + b.z}; 
+}
+float vec3f_dot(vec3f a, vec3f b) { 
+    return a.x * b.x + a.y * b.y + a.z * b.z; 
+}
+vec3f vec3f_cross(vec3f a, vec3f b) { 
+    return (vec3f){a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+float vec3f_length(vec3f v) { 
+    return sqrtf(vec3f_dot(v, v)); 
+}
+vec3f vec3f_norm(vec3f v) { 
+    float l = vec3f_length(v); 
+    return (l > 0) ? vec3f_scale(v, 1.0f / l) : (vec3f){0, 0, 0}; 
+}
+
 void mat4f_identity(mat4f *m) {
     memset(*m, 0, sizeof(float) * 16);
     (*m)[0]  = 1.0f;
@@ -158,14 +181,47 @@ vec4f mat4f_mul_vec4f(mat4f *m, vec4f v) {
 }
 void mat4f_ortho(mat4f *m, float left, float right, float bottom, float top, float near, float far) {
     memset((*m), 0, sizeof(float) * 16);
-    
-    (*m)[0]  = 2.0f / (right - left);
-    (*m)[5]  = 2.0f / (bottom - top);
-    (*m)[10] = 1.0f / (far - near);   
 
+    (*m)[0]  =  2.0f / (right - left);
+    (*m)[5]  =  2.0f / (top - bottom);
+    (*m)[10] = -2.0f / (far - near);
     (*m)[12] = -(right + left) / (right - left);
-    (*m)[13] = -(bottom + top) / (bottom - top);
-    (*m)[14] = -near / (far - near);
+    (*m)[13] = -(top + bottom) / (top - bottom);
+    (*m)[14] = -(far + near) / (far - near);
+    (*m)[15] = 1.0f;    
+}
+void mat4f_perspective(mat4f *m, float near, float far, float fov, float aspect) {
+    memset((*m), 0, sizeof(float) * 16);
+    
+    (*m)[0]  = 1.0f / (aspect * tanf(fov * 0.5f));
+    (*m)[5]  = 1.0f / (tanf(fov * 0.5f));
+    (*m)[10] = -(far + near) / (far - near);   
+    (*m)[11] = -1.0f;
+    (*m)[14] = -(2.0f * far * near) / (far - near);   
+}
+void mat4f_look_at(mat4f *m, vec3f eye, vec3f center, vec3f up) {
+    vec3f zaxis = vec3f_norm(vec3f_sub(eye, center));
+    vec3f xaxis = vec3f_norm(vec3f_cross(up, zaxis));
+    vec3f yaxis = vec3f_cross(zaxis, xaxis);
+
+    (*m)[0]  = xaxis.x;
+    (*m)[1]  = yaxis.x;
+    (*m)[2]  = zaxis.x;
+    (*m)[3]  = 0.0f;
+
+    (*m)[4]  = xaxis.y;
+    (*m)[5]  = yaxis.y;
+    (*m)[6]  = zaxis.y;
+    (*m)[7]  = 0.0f;
+
+    (*m)[8]  = xaxis.z;
+    (*m)[9]  = yaxis.z;
+    (*m)[10] = zaxis.z;
+    (*m)[11] = 0.0f;
+
+    (*m)[12] = -vec3f_dot(xaxis, eye);
+    (*m)[13] = -vec3f_dot(yaxis, eye);
+    (*m)[14] = -vec3f_dot(zaxis, eye);
     (*m)[15] = 1.0f;
 }
 static float minor_mat3f_det(const float *data, unsigned int r, unsigned int c) {
@@ -198,6 +254,9 @@ float mat4f_det(mat4f *m) {
     }
     return det;
 }
+float mat4f_get_float(mat4f *m, unsigned int c, unsigned int r) {
+    return (*m)[c * 4 + r];
+}
 void mat4f_inv(mat4f *m, mat4f *out) {
     float cofactors[4][4];
     for (unsigned int i = 0; i < 4; i++) {
@@ -217,6 +276,13 @@ void mat4f_inv(mat4f *m, mat4f *out) {
     for (unsigned int i = 0; i < 4; i++) {
         for (unsigned int j = 0; j < 4; j++) {
             (*out)[(i * 4) + j] = cofactors[i][j] * inv_det;
+        }
+    }
+}
+void mat4f_transpose(mat4f *m, mat4f *out) {
+    for (int r = 0; r < 4; ++r) {
+        for (int c = 0; c < 4; ++c) {
+            (*out)[r * 4 + c] = (*m)[c * 4 + r];
         }
     }
 }
