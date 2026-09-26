@@ -27,11 +27,14 @@ int cplt_begin() {
     raw.c_cc[VMIN] = 0;
     raw.c_cc[VTIME] = 1;
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
-        perror("tcgetattr");
+        perror("tcsetattr");
         return 0;
     }
     struct winsize ws;
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1) {
+        perror("ioctl");
+        return 0;
+    }
     rows = ws.ws_row;
     cols = ws.ws_col;
     screen_buffer = calloc(rows * cols, sizeof(pixel_t));
@@ -63,7 +66,7 @@ void cplt_refresh() {
     for (int y = 0; y < rows; ++y) {
         for (int x = 0; x < cols; ++x) {
             pixel_t pixel = screen_buffer[y * cols + x];
-            if (memcmp(&pixel.f, &cf, sizeof(color_t)) != 0 || memcmp(&pixel.b, &cb, sizeof(color_t))) {
+            if (memcmp(&pixel.f, &cf, sizeof(color_t)) != 0 || memcmp(&pixel.b, &cb, sizeof(color_t)) != 0) {
                 len += snprintf(buffer + len, sizeof(buffer) - len, "\e[38;2;%d;%d;%dm", pixel.f.r, pixel.f.g, pixel.f.b);
                 len += snprintf(buffer + len, sizeof(buffer) - len, "\e[48;2;%d;%d;%dm", pixel.b.r, pixel.b.g, pixel.b.b);
                 cf = pixel.f;
@@ -99,9 +102,9 @@ void cplt_get_key_pressed(unsigned char buffer[3], ssize_t *n) {
 }
 
 int cplt_get_screen_width() {
-    return rows;
+    return cols;
 }
 
 int cplt_get_screen_height() {
-    return cols;
+    return rows;
 }
